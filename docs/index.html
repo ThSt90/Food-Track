@@ -524,7 +524,7 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
     } };
     const user = { can: async () => true };
     root.claude = { use: async (name) => {
-      if (name === "db") { await loginScreen(client); return db; }
+      if (name === "db") { await loginScreen(client); const map = cfg.profiles || {}; const mine = map[String(client.email()).toLowerCase()]; if (mine) root.FR_PROFILE = mine; return db; }
       if (name === "assets") { await loginScreen(client); return assets; }
       if (name === "user") return user;
       if (name === "downloads") return downloads;
@@ -1761,9 +1761,13 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
   }
   document.addEventListener("focusout", () => setTimeout(() => { if (deferred && !typing()) { deferred = false; renderMain(); } }, 0));
 
+  /** Eigenständige Variante: angemeldete Person sieht nur ihr eigenes Profil (window.FR_PROFILE, aus config.js). */
+  const visibleProfiles = () => (window.FR_PROFILE ? store.profiles().filter((p) => p.id === window.FR_PROFILE) : store.profiles());
+
   function renderMain() {
     const app = $("#app");
     if (!store || ui.status !== "ok") { app.innerHTML = header(false) + bootState(); return; }
+    if (window.FR_PROFILE && ui.pid !== window.FR_PROFILE) { ui.pid = window.FR_PROFILE; LS.set("pid", ui.pid); }
     if (!store.profile(ui.pid)) ui.pid = (store.profiles()[0] || {}).id || "p1";
     const views = { heute: vHeute, radar: vRadar, rezepte: vRezepte, einkauf: vEinkauf, mehr: vMehr, historie: vHistorie, gewicht: vGewicht, profil: vProfil };
     app.innerHTML = header(["heute", "radar"].includes(ui.view)) + (ui.readOnly ? `<div class="notice">Nur Ansicht: Du kannst diese Seite lesen, aber nichts ändern.</div>` : "") + (views[ui.view] || vHeute)();
@@ -1800,7 +1804,7 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
   applyAccent();
 
   function header(withDate) {
-    const ps = store && ui.status === "ok" ? store.profiles() : [];
+    const ps = store && ui.status === "ok" ? visibleProfiles() : [];
     const who = ps.map((p) => `<button data-act="pid" data-id="${p.id}" aria-pressed="${p.id === ui.pid}" title="${esc(p.name)}">${esc(initials(p.name) || p.id)}</button>`).join("");
     const d = ui.date;
     const dateBar = withDate ? `<div class="datebar"><button class="iconbtn" data-act="day" data-n="-1" aria-label="Vortag">${ic("left", 18)}</button>
@@ -2521,7 +2525,7 @@ Regeln:
       <label class="f">Mahlzeit<select id="pl-slot">${X.SLOTS.map(([k, t]) => `<option value="${k}" ${X.slotForCategory(r.category, new Date().getHours()) === k ? "selected" : ""}>${t}</option>`).join("")}</select></label>
       <label class="f">Kochen für (Portionen)<input id="pl-sv" type="number" inputmode="decimal" min="1" step="1" value="${ui.sheet.sv || 4}"></label>
       <label class="f">Davon gegessen (Portionen)<input id="pl-p" type="number" inputmode="decimal" min="0.25" step="0.25" value="1"></label>
-      <label class="f">Für<select id="pl-pid">${store.profiles().map((p) => `<option value="${p.id}" ${p.id === ui.pid ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label>
+      <label class="f">Für<select id="pl-pid">${visibleProfiles().map((p) => `<option value="${p.id}" ${p.id === ui.pid ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label>
       <button class="btn primary full">Einplanen</button></form>`;
   }
 
