@@ -69,3 +69,16 @@ test("Store läuft auf dem Adapter: Seed laden, Rezept speichern, Entdecken-Ents
   await st.deleteRecipe(rid);
   assert.equal(st.S.recipes[rid], undefined);
 });
+
+test("Schnell: geladene Sammlung wird sofort angezeigt, bevor gespeichert ist", async () => {
+  const { db } = await connect();
+  await db.doc("days/a").set({ x: 1 });
+  const seen = [];
+  const un = db.collection("days").onSnapshot((snap) => seen.push(snap.docs.map((d) => d.data().x)));
+  await new Promise((r) => setTimeout(r, 30));
+  const p = db.doc("days/a").update({ x: 2 });
+  assert.equal(seen[seen.length - 1][0], 2, "Anzeige ändert sich vor dem Speichern");
+  await p;
+  assert.equal((await db.doc("days/a").get()).data().x, 2);
+  un();
+});

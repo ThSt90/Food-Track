@@ -1,4 +1,4 @@
-/* Food Radar – eigenständiger Betrieb (GitHub Pages + Supabase).
+/* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
  * sie über window.claude.use(name), damit app.js und store.js unverändert bleiben.
  * Datenmodell: eine Tabelle docs(path, coll, data) – gleiche Dokumentpfade wie in der Artifact-Datenbank.
@@ -91,18 +91,21 @@
       const local = (d) => { if (!cache[coll]) cache[coll] = new Map(); if (d === undefined) cache[coll].delete(id); else cache[coll].set(id, d); if (loaded[coll]) fireAll(coll); };
       return {
         id, path,
-        async get() { const d = await getRemote(); return { id, exists: d !== undefined, data: () => (d === undefined ? undefined : clone(d)), metadata: {} }; },
+        async get() { const d = loaded[coll] ? (cache[coll] || new Map()).get(id) : await getRemote(); return { id, exists: d !== undefined, data: () => (d === undefined ? undefined : clone(d)), metadata: {} }; },
         set: (data) => write(coll, async () => {
           if (!isObj(data)) throw invalid("Body muss ein Objekt sein");
           if (JSON.stringify(data).length > 256 * 1024) throw invalid("zu groß");
-          await upsert(path, clone(data)); local(clone(data));
+          local(clone(data)); // sofort anzeigen, Speichern läuft im Hintergrund
+          try { await upsert(path, clone(data)); } catch (e) { refreshColl(coll, true).catch(() => {}); throw e; }
         }),
         update: (data) => write(coll, async () => {
-          const cur = await getRemote();
+          const hit = loaded[coll] ? (cache[coll] || new Map()).get(id) : undefined;
+          const cur = hit !== undefined ? clone(hit) : await getRemote();
           if (cur === undefined) throw invalid("Dokument existiert nicht");
-          merge(cur, clone(data)); await upsert(path, cur); local(cur);
+          merge(cur, clone(data)); local(cur); // sofort anzeigen, Speichern läuft im Hintergrund
+          try { await upsert(path, cur); } catch (e) { refreshColl(coll, true).catch(() => {}); throw e; }
         }),
-        delete: () => write(coll, async () => { await client.req(`/rest/v1/docs?path=eq.${enc(path)}`, { method: "DELETE" }); local(undefined); }),
+        delete: () => write(coll, async () => { local(undefined); try { await client.req(`/rest/v1/docs?path=eq.${enc(path)}`, { method: "DELETE" }); } catch (e) { refreshColl(coll, true).catch(() => {}); throw e; } }),
       };
     }
     function collection(coll) {
@@ -143,7 +146,7 @@
       if (client.signedIn()) return resolve();
       const el = document.createElement("div");
       el.style.cssText = "position:fixed;inset:0;z-index:99;background:var(--bg,#f5f1ea);display:flex;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif";
-      el.innerHTML = `<form style="width:100%;max-width:340px;display:grid;gap:12px"><h2 style="margin:0">Mahlzeit</h2><div style="opacity:.7;font-size:14px">Bitte anmelden</div>
+      el.innerHTML = `<form style="width:100%;max-width:340px;display:grid;gap:12px"><h2 style="margin:0">Foody</h2><div style="opacity:.7;font-size:14px">Bitte anmelden</div>
         <input name="email" type="email" autocomplete="username" placeholder="E-Mail" required style="padding:12px;font-size:16px;border-radius:10px;border:1px solid #bbb">
         <input name="pw" type="password" autocomplete="current-password" placeholder="Passwort" required style="padding:12px;font-size:16px;border-radius:10px;border:1px solid #bbb">
         <button style="padding:12px;font-size:16px;border-radius:10px;border:0;background:#7a5a3a;color:#fff">Anmelden</button><div class="err" style="color:#b00;font-size:14px;min-height:18px"></div></form>`;

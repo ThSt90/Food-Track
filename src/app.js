@@ -1,4 +1,4 @@
-/* Food Radar – Oberfläche. Rendert aus dem Speicher (store.js), schreibt nur auf Nutzeraktionen. */
+/* Foody – Oberfläche. Rendert aus dem Speicher (store.js), schreibt nur auf Nutzeraktionen. */
 (function () {
   "use strict";
   const L = window.FRL, X = window.FRS;
@@ -88,9 +88,9 @@
   }
 
   function bootState() {
-    if (ui.status === "laden") return `<div class="empty"><b>Daten werden geladen …</b><span>Mahlzeit verbindet sich mit deinem Speicher in der Claude-App.</span></div>`;
-    if (ui.status === "ohne-db") return `<div class="empty"><b>Speicher in dieser Ansicht nicht verfügbar</b><span>Öffne Mahlzeit in der Claude-App oder auf claude.ai, angemeldet mit deinem Konto. Deine Daten liegen dort und sind nach jedem Öffnen wieder da.</span></div>`;
-    if (ui.status === "leer") return `<div class="empty"><b>Noch keine Profile angelegt</b><span>Mahlzeit legt zwei Profile an: Profil 1 (Mann, 37) und Profil 2 (Frau, 35). Größe und Gewicht trägst du danach ein.</span><button class="btn primary" data-act="createProfiles">Profile anlegen</button></div>`;
+    if (ui.status === "laden") return `<div class="empty"><b>Daten werden geladen …</b><span>Foody verbindet sich mit deinem Speicher in der Claude-App.</span></div>`;
+    if (ui.status === "ohne-db") return `<div class="empty"><b>Speicher in dieser Ansicht nicht verfügbar</b><span>Öffne Foody in der Claude-App oder auf claude.ai, angemeldet mit deinem Konto. Deine Daten liegen dort und sind nach jedem Öffnen wieder da.</span></div>`;
+    if (ui.status === "leer") return `<div class="empty"><b>Noch keine Profile angelegt</b><span>Foody legt zwei Profile an: Profil 1 (Mann, 37) und Profil 2 (Frau, 35). Größe und Gewicht trägst du danach ein.</span><button class="btn primary" data-act="createProfiles">Profile anlegen</button></div>`;
     return "";
   }
 
@@ -302,7 +302,6 @@
       <button class="btn big" data-act="pickMeal" data-v="fruehstueck">Frühstück</button></div>`;
     let stack = store.radarStack(ui.pid, ui.date, f);
     if (ui.later.length) { const ix = (id) => ui.later.indexOf(id); stack = [...stack.filter((r) => ix(r.id) < 0), ...stack.filter((r) => ix(r.id) >= 0).sort((a, b) => ix(a.id) - ix(b.id))]; }
-    const lists = store.radarLists(ui.pid, ui.date);
     const total = Object.keys(store.S.recipes).length;
     const nFav = store.radarFavCount(ui.pid, ui.date, f);
     let out = `<div class="toprow"><button class="btn sm" data-act="resetDeck">${ic("undo", 16)} Zurücksetzen</button>${fav ? `<button class="btn sm" data-act="stage" data-v="alle">‹ Weiter sammeln</button>` : ""}</div>`;
@@ -325,9 +324,6 @@
           <button class="abtn keep" data-act="stage" data-v="fav">${ic("next", 22)}<span>Weiter${nFav ? " (" + nFav + ")" : ""}</span></button>`}
         </div><div class="note" style="text-align:center">${fav ? (stack.length <= nFav ? `Karte ${nFav - stack.length + 1} von ${nFav}` : `noch ${stack.length} Karte${stack.length === 1 ? "" : "n"}`) : (LS.get("hintSeen", false) ? "" : `<b class="hint">← Raus · Auswahl → · ↑ Superlike</b>`)}</div>`;
     }
-    const li = (arr, st) => arr.map((x) => `<div><span>${esc(x.title)}</span><button class="btn sm ghost" data-act="decide" data-a="undo" data-id="${x.id}">Zurücknehmen</button></div>`).join("");
-    if (fav && lists.vorgemerkt.length) out += `<div class="section-title"><h3>Heute kochen</h3><span class="note">Portionen unter „Ausgewählt“ einstellen</span></div><div class="minilist">${li(lists.vorgemerkt)}</div>`;
-    if (fav && lists.uebersprungen.length) out += `<div class="section-title"><h3>Heute aussortiert</h3><span class="note">bleibt in der Bibliothek</span></div><div class="minilist">${li(lists.uebersprungen)}</div>`;
     return out;
   }
 
@@ -381,7 +377,7 @@
       if (Math.abs(dx) > limit) {
         card.style.transform = `translate3d(${dx > 0 ? 130 : -130}%,0,0) rotate(${dx > 0 ? 16 : -16}deg)`; card.style.opacity = "0";
         const act = dx > 0 ? (stage2 ? "keep" : "fav") : "skip";
-        setTimeout(() => decide(card.dataset.rid, act), 260);
+        setTimeout(() => decide(card.dataset.rid, act), 180);
       } else clear();
     };
     card.addEventListener("pointerup", end); card.addEventListener("pointercancel", end);
@@ -505,7 +501,7 @@
       </div><button class="btn sm" data-act="ingAdd">${ic("plus", 16)} Zutat</button>
       <label class="f">Zubereitung (ein Schritt pro Zeile)<textarea id="ed-steps" class="${flag(unsure.has("Zubereitungsschritte"))}" data-bind="instructions">${esc(r.instructions)}</textarea></label>
       <h3>Nährwerte laut Rezept</h3>
-      <div class="note">Nur eintragen, was im Rezept steht – sonst leer lassen, dann rechnet Mahlzeit aus den Zutaten.</div>
+      <div class="note">Nur eintragen, was im Rezept steht – sonst leer lassen, dann rechnet Foody aus den Zutaten.</div>
       <div class="fgrid">${[["kcal", "kcal"], ["protein", "Protein g"], ["carbs", "Kohlenhydrate g"], ["fat", "Fett g"]].map(([k, t]) => `<label class="f">${t}<input id="ed-n-${k}" class="${flag(unsure.has("Nährwerte") && k === "kcal")}" type="number" inputmode="decimal" min="0" step="0.1" value="${esc(r.nutrition[k])}" data-nut="${k}"></label>`).join("")}
         <label class="f">Bezug<select id="ed-basis" data-nut="basis"><option value="portion" ${r.nutrition.basis === "portion" ? "selected" : ""}>je Portion</option><option value="gesamt" ${r.nutrition.basis === "gesamt" ? "selected" : ""}>ganzes Rezept</option></select></label>
         <label class="f">Art<select id="ed-q" data-nut="quality"><option value="original" ${r.nutrition.quality !== "geschaetzt" ? "selected" : ""}>Originalwert</option><option value="geschaetzt" ${r.nutrition.quality === "geschaetzt" ? "selected" : ""}>eigene Schätzung</option></select></label></div>
@@ -719,7 +715,7 @@ Regeln:
     const v = (x) => (x == null ? "" : esc(x));
     const formula = e && e.bmr != null
       ? `Grundumsatz (Mifflin-St. Jeor):\n10 × ${de(w, 1)} kg + 6,25 × ${de(p.heightCm)} cm − 5 × ${e.age} J. ${p.sex === "m" ? "+ 5" : "− 161"} = ${de(e.bmr)} kcal\nGesamtbedarf: ${de(e.bmr)} × PAL ${de(p.pal, 2)} = ${de(e.tdee)} kcal\nTagesziel: ${e.goal == null ? "–" : de(e.goal) + " kcal"} (${e.goalSource || "–"})`
-      : `Es fehlen: ${(e ? e.missing : []).join(", ") || "–"}. Ohne diese Angaben zeigt Mahlzeit keinen Bedarf an.${e && e.goal != null ? `\nTagesziel (manuell): ${de(e.goal)} kcal` : ""}`;
+      : `Es fehlen: ${(e ? e.missing : []).join(", ") || "–"}. Ohne diese Angaben zeigt Foody keinen Bedarf an.${e && e.goal != null ? `\nTagesziel (manuell): ${de(e.goal)} kcal` : ""}`;
     return `<h2>Profil · ${esc(p.name)}</h2>
       <section class="card"><div class="eyebrow">Energiebedarf</div>
         <div class="stats"><div class="stat"><b>${e && e.bmr != null ? de(e.bmr) : "–"}</b><span>Grundumsatz kcal</span></div><div class="stat"><b>${de(p.pal, 2)}</b><span>Aktivitätsfaktor (PAL)</span></div>
@@ -1117,7 +1113,7 @@ Regeln:
     backup: async () => {
       try {
         const data = JSON.stringify({ exportiert: new Date().toISOString(), ...Object.fromEntries(["profiles", "foods", "recipes", "favorites", "days", "weights", "shopping", "settings"].map((k) => [k, store.S[k]])) }, null, 1);
-        await caps.downloads.save({ filename: `food-radar-sicherung-${today()}.json`, data });
+        await caps.downloads.save({ filename: `foody-sicherung-${today()}.json`, data });
       } catch (e) { if (e && e.code !== "cancelled") toast("Sicherung nicht gespeichert."); }
     },
   };

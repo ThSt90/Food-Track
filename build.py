@@ -31,7 +31,7 @@ def main() -> None:
     head = ('<!doctype html><html lang="de"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">'
-            '<meta name="apple-mobile-web-app-title" content="Mahlzeit"><link rel="apple-touch-icon" href="icon.png">'
+            '<meta name="apple-mobile-web-app-title" content="Foody"><link rel="apple-touch-icon" href="icon.png"><link rel="icon" type="image/png" href="favicon.png">'
             '<link rel="manifest" href="manifest.webmanifest"><script src="config.js"></script></head><body>')
     backend = (SRC / "backend.js").read_text(encoding="utf-8")
     body = html.replace("<main id=\"app\"", "<script>\n" + backend + "\n</script>\n<main id=\"app\"", 1)

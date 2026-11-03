@@ -193,7 +193,7 @@ def main() -> int:
         page.mouse.up(); page.wait_for_timeout(700)
         check("Stufe 2, rechts wischen: Frage nach der Mahlzeit", "Zu welcher Mahlzeit" in page.inner_text(".sheet") and "Snack" not in page.inner_text(".sheet"))
         page.click(".sheet >> text=Abendessen >> xpath=../following-sibling::button"); page.wait_for_timeout(500)
-        check("Stufe 2: nach Auswahl steht das Gericht bei „Heute kochen“", "Heute kochen" in body())
+        check("Stufe 2: nach Auswahl ist die Auswahl abgearbeitet", "Nichts mehr in der Auswahl" in body())
         page.click("button:has-text('Weiter sammeln')"); page.wait_for_timeout(500)
         nav("Rezepte"); page.click("button.chip:has-text('★ Favoriten')"); page.wait_for_timeout(200)
         print("   Favoriten:", page.locator(".rcard").count(), fav_rid)

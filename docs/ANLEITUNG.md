@@ -1,4 +1,4 @@
-# Mahlzeit auf GitHub Pages + Supabase (kostenlos)
+# Foody auf GitHub Pages + Supabase (kostenlos)
 
 1. **Supabase**: auf supabase.com ein kostenloses Projekt anlegen (Region Frankfurt).
    - SQL Editor: erst `supabase/1_setup.sql`, dann `supabase/2_daten.sql` einfügen und ausführen.
