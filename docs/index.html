@@ -362,6 +362,15 @@ button.chip { min-height: 44px; }
 .fold[open] > summary { margin-bottom: 10px; }
 .wrap { padding-bottom: 160px; }
 
+.herowrap { position: relative; }
+.favstar { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; background: rgba(0, 0, 0, .55); color: #fff; backdrop-filter: blur(6px); }
+.favstar[aria-pressed="true"] { background: #f2b630; color: #2b2724; }
+.chip.fav-on { background: #f2b630; color: #2b2724; }
+.thumbwrap { position: relative; display: block; }
+.favmark { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #f2b630; color: #2b2724; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); }
+.rcard.isfav { border-color: #f2b630; box-shadow: 0 0 0 1px #f2b630; }
+.round.fav[aria-pressed="true"] { background: #f2b630; color: #2b2724; border-color: transparent; }
+
 </style>
 <script>
 /* Food Radar – eigenständiger Betrieb (GitHub Pages + Supabase).
@@ -1952,9 +1961,9 @@ button.chip { min-height: 44px; }
     if (opts.compact) {
       const stamps = opts.swipe ? `<div class="stamp keep">${opts.stage === "fav" ? "HEUTE KOCHEN" : "FAVORIT"}</div><div class="stamp skip">${opts.stage === "fav" ? "HEUTE NICHT" : "LÖSCHEN"}</div>` : "";
       return `<article class="card tile compact ${opts.swipe ? "swipe" : ""} ${opts.next ? "next" : ""}" data-rid="${r.id}">${stamps}
-        ${img(r.image, "hero", r.title)}
+        <div class="herowrap">${img(r.image, "hero", r.title)}<button class="favstar" data-act="fav" data-id="${r.id}" aria-pressed="${!!r.favorite}" aria-label="${r.favorite ? "Favorit entfernen" : "Als Favorit speichern"}">${ic("star", 22, !!r.favorite)}</button></div>
         <div><h2>${esc(r.title)}</h2><div class="sub">${esc(meta)}</div></div>
-        <div class="chips"><span class="chip">${[1, 2, 3].map((i) => `<i class="dot ${i <= effort ? "on" : ""}"></i>`).join("")} ${esc(r.effortShown || "Aufwand ?")}</span>${feats.slice(0, 3).join("")}${r.favorite ? `<span class="chip" style="color:var(--hot-1)">★ Favorit</span>` : ""}</div>
+        <div class="chips"><span class="chip">${[1, 2, 3].map((i) => `<i class="dot ${i <= effort ? "on" : ""}"></i>`).join("")} ${esc(r.effortShown || "Aufwand ?")}</span>${feats.slice(0, 3).join("")}${r.favorite ? `<span class="chip fav-on">★ Favorit</span>` : ""}</div>
         ${r.mainIngredients.length ? `<div class="ings">${r.mainIngredients.map((n) => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
         <button class="link" style="align-self:flex-end" data-act="openRecipe" data-id="${r.id}">Rezept ansehen ›</button>
       </article>`;
@@ -1963,7 +1972,7 @@ button.chip { min-height: 44px; }
       ${opts.swipe ? `<div class="stamp keep">${opts.stage === "fav" ? "HEUTE KOCHEN" : "FAVORIT"}</div><div class="stamp skip">${opts.stage === "fav" ? "HEUTE NICHT" : "NICHT JETZT"}</div>` : ""}
       ${img(r.image, "hero", r.title)}
       <div class="row"><div><h2>${esc(r.title)}</h2><div class="sub">${esc(meta)}</div></div>${ring(kcal(k), f.pct, f.cls, "kcal")}</div>
-      <div class="chips"><span class="chip ${f.cls === "hi" || f.cls === "mid" ? "ok" : f.cls === "low" ? "warn" : f.cls === "bad" ? "bad" : ""}">${esc(f.label)}</span>${feats.join("")}${r.favorite ? `<span class="chip" style="color:var(--hot-1)">★ Favorit</span>` : ""}${qualityChip(r.nut.quality)}</div>
+      <div class="chips"><span class="chip ${f.cls === "hi" || f.cls === "mid" ? "ok" : f.cls === "low" ? "warn" : f.cls === "bad" ? "bad" : ""}">${esc(f.label)}</span>${feats.join("")}${r.favorite ? `<span class="chip fav-on">★ Favorit</span>` : ""}${qualityChip(r.nut.quality)}</div>
       <div class="strip"><span class="eyebrow">je Portion</span>
         <div class="v"><b>${r.nut.perPortion.protein == null ? "–" : de(r.nut.perPortion.protein)}</b><small>Protein g</small></div><span class="sep">›</span>
         <div class="v"><b>${r.nut.perPortion.carbs == null ? "–" : de(r.nut.perPortion.carbs)}</b><small>KH g</small></div><span class="sep">›</span>
@@ -2017,7 +2026,7 @@ button.chip { min-height: 44px; }
         <div class="actions">
           <div class="al"><button class="round small" data-act="undoDecision" aria-label="Letzte Entscheidung rückgängig" ${ui.lastDecision ? "" : "disabled"}>${ic("undo", 20)}</button><span>Zurück</span></div>
           <div class="al"><button class="round skip" data-act="decide" data-a="skip" data-id="${stack[0].id}" aria-label="${fav ? "Heute nicht" : "Nicht in die engere Auswahl"}">${ic("x", 26)}</button><span>${fav ? "Heute nicht" : "Überspringen"}</span></div>${fav ? `<div class="al"><button class="round small" data-act="decide" data-a="later" data-id="${stack[0].id}" aria-label="Später nochmal ansehen">${ic("next", 20)}</button><span>Später</span></div>` : ""}
-          <div class="al"><button class="round ${fav ? "keep" : "fav"}" data-act="decide" data-a="${right}" data-id="${stack[0].id}" aria-label="${fav ? "Heute kochen" : "In die engere Auswahl"}">${ic(fav ? "check" : "star", fav ? 30 : 26, !fav)}</button><span>${fav ? "Heute kochen" : "Merken"}</span></div>
+          <div class="al"><button class="round ${fav ? "keep" : "fav"}" ${!fav && stack[0].favorite ? 'aria-pressed="true"' : ""} data-act="decide" data-a="${right}" data-id="${stack[0].id}" aria-label="${fav ? "Heute kochen" : "In die engere Auswahl"}">${ic(fav ? "check" : "star", fav ? 30 : 26, !fav)}</button><span>${fav ? "Heute kochen" : stack[0].favorite ? "★ Favorit" : "Favorit"}</span></div>
           ${fav ? "" : `<div class="al"><button class="round small" data-act="draw" aria-label="Weitere Gerichte laden">${ic("plus", 20)}</button><span>Mehr laden</span></div>`}
         </div><div class="note" style="text-align:center">${LS.get("hintSeen", false) ? "" : `<b class="hint">${fav ? "← Heute nicht · Heute kochen →" : "← Überspringen · Merken →"}</b><br>`}${fav && stack.length <= nFav ? `Karte ${nFav - stack.length + 1} von ${nFav}` : `noch ${stack.length} Karte${stack.length === 1 ? "" : "n"}`}</div>`;
     }
@@ -2068,6 +2077,7 @@ button.chip { min-height: 44px; }
 
   async function decide(rid, action, servings, slot) {
     try { LS.set("hintSeen", true); } catch (e) { /* ohne Speicher weiter */ }
+    if (action === "fav") toast("★ Als Favorit gespeichert");
     await run("decide:" + rid, async () => {
       const r = store.S.recipes[rid];
       const copy = action === "del" && r ? JSON.parse(JSON.stringify(r)) : null;
@@ -2097,7 +2107,7 @@ button.chip { min-height: 44px; }
         <select id="lib-sort" data-change="libsort" aria-label="Sortierung" style="width:auto">${[["name", "A–Z"], ["kcal", "kcal ↑"], ["kcal-", "kcal ↓"], ["zeit", "Zeit ↑"]].map(([k, t]) => `<option value="${k}" ${l.sort === k ? "selected" : ""}>${t}</option>`).join("")}</select></div>
       <div class="filters">${chip("fav", true, "★ Favoriten")}${X.CATS.map(([k]) => chip("cat", k, CAT_SHORT[k])).join("")}${chip("max", 20, "≤ 20 Min")}${chip("max", 40, "≤ 40 Min")}${allTags.map((t) => chip("tag", t, t)).join("")}</div>
       <div class="note">${rs.length} von ${Object.keys(store.S.recipes).length} Rezepten</div>
-      ${rs.length ? [["fruehstueck", "Frühstück"], ["main", "Mittag / Abend"]].map(([ck, ct]) => { const g = rs.filter((r) => X.normCat(r.category) === ck); return g.length ? `<h3 class="cat-h">${ct} <span class="cat-n">${g.length}</span></h3><div class="grid">${g.map((r) => `<button class="rcard" data-act="openRecipe" data-id="${r.id}">${img(r.image, "", r.title)}<div class="body">
+      ${rs.length ? [["fruehstueck", "Frühstück"], ["main", "Mittag / Abend"]].map(([ck, ct]) => { const g = rs.filter((r) => X.normCat(r.category) === ck).sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0)); return g.length ? `<h3 class="cat-h">${ct} <span class="cat-n">${g.length}</span></h3><div class="grid">${g.map((r) => `<button class="rcard ${r.favorite ? "isfav" : ""}" data-act="openRecipe" data-id="${r.id}"><span class="thumbwrap">${img(r.image, "", r.title)}${r.favorite ? `<span class="favmark" aria-label="Favorit">${ic("star", 18, true)}</span>` : ""}</span><div class="body">
         <div class="t">${r.favorite ? '<span class="star">★</span> ' : ""}${esc(r.title)}</div>
         <div class="m"><span><span class="chip hot">${esc(CAT_SHORT[X.normCat(r.category)])}</span>${r.prepMinutes ? " · " + r.prepMinutes + " Min" : ""}</span><b>${kcal(r.nut.perPortion.kcal)} kcal</b></div>
         <div class="chips">${qualityChip(r.nut.quality)}${r.autoTags.map((t) => `<span class="chip hot">${esc(t)}</span>`).join("")}</div></div></button>`).join("")}</div>` : ""; }).join("")
@@ -2702,7 +2712,7 @@ Regeln:
     decide: (t) => { if (t.dataset.a === "later") return ACT.later(t.dataset.id); if (t.dataset.a === "keep" && !ui.sheet && ui.radar.meal === "main") return ACT.askSlot(t.dataset.id); decide(t.dataset.id, t.dataset.a, t.dataset.sv); if (ui.sheet && ui.sheet.type === "recipe" && t.dataset.a === "keep") closeSheet(); },
     undoDecision: () => { const d = ui.lastDecision; if (d && d.pid === ui.pid && d.date === ui.date) { ui.lastDecision = null; if (d.deleted) run("undo:" + d.rid, () => store.restoreRecipe(d.rid, d.deleted)); else decide(d.rid, "undo"); } },
     toastUndo: () => { ui.toast = null; ACT.undoDecision(); },
-    fav: (t) => run("fav:" + t.dataset.id, async () => { const on = await store.toggleFavorite(ui.pid, t.dataset.id); toast(on ? "Als Favorit gespeichert – erscheint öfter" : "Favorit entfernt"); }),
+    fav: (t) => run("fav:" + t.dataset.id, async () => { const on = await store.toggleFavorite(ui.pid, t.dataset.id); toast(on ? "★ Favorit gespeichert – erscheint öfter" : "Favorit entfernt"); }),
     toggleIng: (t) => { const k = "ing:" + t.dataset.id; ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k); schedule(); if (ui.sheet && ui.sheet.type === "recipe") renderSheet(true); },
     openRecipe: (t) => openSheet("recipe", { id: t.dataset.id }),
     planSheet: (t) => openSheet("plan", { id: t.dataset.id, sv: ui.sheet && ui.sheet.sv, token: "pl-" + Math.random().toString(36).slice(2, 10) }),
