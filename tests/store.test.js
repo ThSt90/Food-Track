@@ -161,8 +161,8 @@ test("12b Zwei Stufen: rechts = Favorit, Stufe 2 = heute kochen, Mittag/Abend ge
   await st.radarDraw("p1", DAY, {}, 5);
   const [a, b] = st.radarStack("p1", DAY);
   await st.radarDecide("p1", DAY, a.id, "fav");
-  assert.ok(st.recipe(a.id, "p1").favorite);
-  assert.equal(st.shopping(DAY, "p1").items.length, 0); // Favorit allein erzeugt noch keine Einkaufsliste
+  assert.ok(!st.recipe(a.id, "p1").favorite); // rechts = nur engere Auswahl, kein dauerhafter Favorit
+  assert.equal(st.shopping(DAY, "p1").items.length, 0); // Auswahl allein erzeugt noch keine Einkaufsliste
   assert.ok(!st.radarStack("p1", DAY).some((r) => r.id === a.id)); // Stufe 1 ohne Favoriten
   assert.deepEqual(st.radarStack("p1", DAY, { stage: "fav" }).map((r) => r.id), [a.id]);
   await st.radarDecide("p1", DAY, a.id, "keep");
@@ -171,7 +171,9 @@ test("12b Zwei Stufen: rechts = Favorit, Stufe 2 = heute kochen, Mittag/Abend ge
   const m = st.meals("p1", DAY).find((x) => x.recipeId === a.id);
   assert.ok(["mittag", "abend", "fruehstueck"].includes(m.slot));
   assert.equal(m.servings, 4);
-  await st.radarDecide("p1", DAY, b.id, "fav");
+  await st.radarDecide("p1", DAY, b.id, "super"); // Superlike: engere Auswahl + dauerhafter Favorit
+  assert.ok(st.recipe(b.id, "p1").favorite);
+  assert.ok(st.radarStack("p1", DAY, { stage: "fav" }).some((r) => r.id === b.id));
   await st.radarDecide("p1", DAY, b.id, "undo"); // nimmt den Favoriten wieder zurück
   assert.ok(!st.recipe(b.id, "p1").favorite);
   assert.equal(slotForCategory("mittag", 9), "mittag");

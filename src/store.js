@@ -369,10 +369,9 @@
       const slot = filter.slot ? normCat(filter.slot) : null;
       const okF = (r) => (!slot || r.category === slot) && (!filter.maxMinutes || (r.prepMinutes != null && r.prepMinutes <= filter.maxMinutes));
       if (filter.stage === "fav") {
-        // Stufe 2: Favoriten, über die für diesen Tag noch nicht entschieden wurde
-        const done = new Set(radarEntries(pid, date).filter((e) => e.status === "vorgemerkt" || e.status === "uebersprungen").map((e) => e.rid));
-        return [...favSet(pid)].filter((id) => all[id] && !done.has(id)).map((id) => ({ ...all[id], why: ["Favorit"] })).filter(okF)
-          .sort((a, b) => a.title.localeCompare(b.title, "de"));
+        // Stufe 2: die in Stufe 1 nach rechts (oder per Superlike) gewählten Gerichte, über die heute noch nicht endgültig entschieden wurde
+        return radarEntries(pid, date).filter((e) => e.status === "favorit" && all[e.rid]).sort((a, b) => (a.pos || 0) - (b.pos || 0))
+          .map((e) => ({ ...all[e.rid], why: e.super ? ["Superlike"] : ["Ausgewählt"] })).filter(okF);
       }
       // Stufe 1: alle Rezepte durchwischen; Favoriten aus früheren Tagen kommen hier dreifach so oft vor
       return radarEntries(pid, date).filter((e) => e.status === "vorgeschlagen" && all[e.rid]).sort((a, b) => a.pos - b.pos)
@@ -401,18 +400,19 @@
       const r = S.recipes[rid];
       if (!r) throw new Error("Rezept nicht gefunden");
       if (action === "del") { await deleteRecipe(rid); return "geloescht"; } // nur auf ausdrücklichen Wunsch; die App hält eine Kopie für „Rückgängig“
-      const status = { skip: "uebersprungen", keep: "vorgemerkt", fav: "favorit", undo: "vorgeschlagen" }[action];
+      const status = { skip: "uebersprungen", keep: "vorgemerkt", fav: "favorit", super: "favorit", undo: "vorgeschlagen" }[action];
       const mealId = `radar-${rid}`;
       const d = dayDoc(pid, date);
       const prev = d && d.radar && d.radar[rid];
-      const change = { radar: { [rid]: { status, at: now().toISOString(), ...(prev ? {} : { pos: 9999, why: [] }) } } };
+      const change = { radar: { [rid]: { status, at: now().toISOString(), ...(action === "super" ? { super: true } : action === "undo" ? { super: null } : {}), ...(prev ? {} : { pos: 9999, why: [] }) } } };
       const m = d && d.meals ? d.meals[mealId] : null;
       if (action === "keep" && !m) change.meals = { [mealId]: { slot: slot || slotForCategory(r.category, now().getHours()), recipeId: rid, title: r.title, status: "vorgemerkt", portions: 1, servings: Number(servings) > 0 ? Number(servings) : 4, manual: null, snap: null, eatenAt: null, createdAt: now().toISOString() } };
       if (action !== "keep" && m && (m.status === "vorgemerkt" || m.status === "geplant")) change.meals = { [mealId]: null };
       await dayPatch(pid, date, change);
-      // Stufe 1: rechts wischen = Favorit; „Zurücknehmen“ entfernt den Favoriten wieder, den dieser Tag gesetzt hat
-      if (action === "fav" && !favSet(pid).has(rid)) await patch("favorites/" + pid, { ids: {} }, { ids: { [rid]: true } });
-      if (action === "undo" && prev && prev.status === "favorit" && favSet(pid).has(rid)) await patch("favorites/" + pid, { ids: {} }, { ids: { [rid]: null } });
+      // Stufe 1: rechts = in die engere Auswahl (Stufe 2), nach oben (Superlike) = zusätzlich dauerhafter Favorit.
+      // „Zurücknehmen“ entfernt nur den Favoriten wieder, den dieser Tag per Superlike gesetzt hat.
+      if (action === "super" && !favSet(pid).has(rid)) await patch("favorites/" + pid, { ids: {} }, { ids: { [rid]: true } });
+      if (action === "undo" && prev && prev.super && favSet(pid).has(rid)) await patch("favorites/" + pid, { ids: {} }, { ids: { [rid]: null } });
       return status;
     }
 

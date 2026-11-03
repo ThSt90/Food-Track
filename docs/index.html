@@ -193,7 +193,7 @@ button.chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--
 .deck { position: relative; display: grid; }
 .deck > .card { grid-area: 1 / 1; }
 .deck > .card.next { transform: scale(.96) translateY(10px); opacity: .55; pointer-events: none; }
-.swipe { touch-action: pan-y; user-select: none; -webkit-user-select: none; will-change: transform; }
+.swipe { touch-action: none; user-select: none; -webkit-user-select: none; will-change: transform; }
 .swipe.anim { transition: transform .3s cubic-bezier(.2, .7, .2, 1), opacity .3s; }
 .stamp { position: absolute; top: 26px; padding: 6px 14px; border: 3px solid; border-radius: 12px; font-weight: 900; font-size: 22px; letter-spacing: .08em; opacity: 0; z-index: 3; pointer-events: none; }
 .stamp.keep { left: 22px; color: var(--ok); transform: rotate(-12deg); }
@@ -378,6 +378,18 @@ button.chip { min-height: 44px; }
 .abtn.skip { color: var(--bad); }
 .abtn.keep { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .abtn.favbtn[aria-pressed="true"] { background: #f2b630; color: #2b2724; border-color: transparent; }
+
+/* Neu: eine Seite ohne Scrollen, nur die Karte */
+.stamp.up { left: 50%; right: auto; top: 22px; color: #f2b630; transform: translateX(-50%) rotate(-4deg); }
+.abtn.super { color: #f2b630; }
+html.fit-lock, html.fit-lock body { overflow: hidden; height: 100%; overscroll-behavior: none; }
+.wrap.fit { height: 100dvh; box-sizing: border-box; overflow: hidden; padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); gap: 8px; }
+.wrap.fit .deck { flex: 1; min-height: 0; }
+.wrap.fit .deck > .card { min-height: 0; overflow: hidden; }
+.wrap.fit .tile.compact .herowrap { flex: 1 1 0; min-height: 90px; display: flex; }
+.wrap.fit .tile.compact .herowrap .hero { flex: 1; height: auto; min-height: 90px; margin: 0; }
+.wrap.fit .actions { position: static; padding: 4px 0 0; margin: 0; }
+.wrap.fit .toprow { min-height: 44px; justify-content: flex-start; gap: 10px; }
 
 </style>
 <script>
@@ -1502,10 +1514,9 @@ button.chip { min-height: 44px; }
       const slot = filter.slot ? normCat(filter.slot) : null;
       const okF = (r) => (!slot || r.category === slot) && (!filter.maxMinutes || (r.prepMinutes != null && r.prepMinutes <= filter.maxMinutes));
       if (filter.stage === "fav") {
-        // Stufe 2: Favoriten, über die für diesen Tag noch nicht entschieden wurde
-        const done = new Set(radarEntries(pid, date).filter((e) => e.status === "vorgemerkt" || e.status === "uebersprungen").map((e) => e.rid));
-        return [...favSet(pid)].filter((id) => all[id] && !done.has(id)).map((id) => ({ ...all[id], why: ["Favorit"] })).filter(okF)
-          .sort((a, b) => a.title.localeCompare(b.title, "de"));
+        // Stufe 2: die in Stufe 1 nach rechts (oder per Superlike) gewählten Gerichte, über die heute noch nicht endgültig entschieden wurde
+        return radarEntries(pid, date).filter((e) => e.status === "favorit" && all[e.rid]).sort((a, b) => (a.pos || 0) - (b.pos || 0))
+          .map((e) => ({ ...all[e.rid], why: e.super ? ["Superlike"] : ["Ausgewählt"] })).filter(okF);
       }
       // Stufe 1: alle Rezepte durchwischen; Favoriten aus früheren Tagen kommen hier dreifach so oft vor
       return radarEntries(pid, date).filter((e) => e.status === "vorgeschlagen" && all[e.rid]).sort((a, b) => a.pos - b.pos)
@@ -1534,18 +1545,19 @@ button.chip { min-height: 44px; }
       const r = S.recipes[rid];
       if (!r) throw new Error("Rezept nicht gefunden");
       if (action === "del") { await deleteRecipe(rid); return "geloescht"; } // nur auf ausdrücklichen Wunsch; die App hält eine Kopie für „Rückgängig“
-      const status = { skip: "uebersprungen", keep: "vorgemerkt", fav: "favorit", undo: "vorgeschlagen" }[action];
+      const status = { skip: "uebersprungen", keep: "vorgemerkt", fav: "favorit", super: "favorit", undo: "vorgeschlagen" }[action];
       const mealId = `radar-${rid}`;
       const d = dayDoc(pid, date);
       const prev = d && d.radar && d.radar[rid];
-      const change = { radar: { [rid]: { status, at: now().toISOString(), ...(prev ? {} : { pos: 9999, why: [] }) } } };
+      const change = { radar: { [rid]: { status, at: now().toISOString(), ...(action === "super" ? { super: true } : action === "undo" ? { super: null } : {}), ...(prev ? {} : { pos: 9999, why: [] }) } } };
       const m = d && d.meals ? d.meals[mealId] : null;
       if (action === "keep" && !m) change.meals = { [mealId]: { slot: slot || slotForCategory(r.category, now().getHours()), recipeId: rid, title: r.title, status: "vorgemerkt", portions: 1, servings: Number(servings) > 0 ? Number(servings) : 4, manual: null, snap: null, eatenAt: null, createdAt: now().toISOString() } };
       if (action !== "keep" && m && (m.status === "vorgemerkt" || m.status === "geplant")) change.meals = { [mealId]: null };
       await dayPatch(pid, date, change);
-      // Stufe 1: rechts wischen = Favorit; „Zurücknehmen“ entfernt den Favoriten wieder, den dieser Tag gesetzt hat
-      if (action === "fav" && !favSet(pid).has(rid)) await patch("favorites/" + pid, { ids: {} }, { ids: { [rid]: true } });
-      if (action === "undo" && prev && prev.status === "favorit" && favSet(pid).has(rid)) await patch("favorites/" + pid, { ids: {} }, { ids: { [rid]: null } });
+      // Stufe 1: rechts = in die engere Auswahl (Stufe 2), nach oben (Superlike) = zusätzlich dauerhafter Favorit.
+      // „Zurücknehmen“ entfernt nur den Favoriten wieder, den dieser Tag per Superlike gesetzt hat.
+      if (action === "super" && !favSet(pid).has(rid)) await patch("favorites/" + pid, { ids: {} }, { ids: { [rid]: true } });
+      if (action === "undo" && prev && prev.super && favSet(pid).has(rid)) await patch("favorites/" + pid, { ids: {} }, { ids: { [rid]: null } });
       return status;
     }
 
@@ -1797,7 +1809,9 @@ button.chip { min-height: 44px; }
     if (window.FR_PROFILE && ui.pid !== window.FR_PROFILE) { ui.pid = window.FR_PROFILE; LS.set("pid", ui.pid); }
     if (!store.profile(ui.pid)) ui.pid = (store.profiles()[0] || {}).id || "p1";
     const views = { heute: vHeute, radar: vRadar, rezepte: vRezepte, einkauf: vEinkauf, mehr: vMehr, historie: vHistorie, gewicht: vGewicht, profil: vProfil };
-    app.innerHTML = header(["heute", "radar"].includes(ui.view)) + (ui.readOnly ? `<div class="notice">Nur Ansicht: Du kannst diese Seite lesen, aber nichts ändern.</div>` : "") + (views[ui.view] || vHeute)();
+    app.innerHTML = header(ui.view === "heute") + (ui.readOnly ? `<div class="notice">Nur Ansicht: Du kannst diese Seite lesen, aber nichts ändern.</div>` : "") + (views[ui.view] || vHeute)();
+    const fit = ui.view === "radar" && !!ui.radar.meal;
+    app.classList.toggle("fit", fit); document.documentElement.classList.toggle("fit-lock", fit);
     bindSwipe();
   }
 
@@ -1967,7 +1981,7 @@ button.chip { min-height: 44px; }
     const open = ui.open.has("ing:" + r.id);
     const used = bn.total != null && bn.remaining != null ? bn.total - bn.remaining : 0;
     if (opts.compact) {
-      const stamps = opts.swipe ? `<div class="stamp keep">${opts.stage === "fav" ? "HEUTE KOCHEN" : "FAVORIT"}</div><div class="stamp skip">${opts.stage === "fav" ? "HEUTE NICHT" : "LÖSCHEN"}</div>` : "";
+      const stamps = opts.swipe ? `<div class="stamp keep">${opts.stage === "fav" ? "HEUTE KOCHEN" : "AUSWAHL"}</div><div class="stamp skip">${opts.stage === "fav" ? "HEUTE NICHT" : "RAUS"}</div>${opts.stage === "fav" ? "" : `<div class="stamp up">SUPERLIKE</div>`}` : "";
       return `<article class="card tile compact ${opts.swipe ? "swipe" : ""} ${opts.next ? "next" : ""}" data-rid="${r.id}">${stamps}
         <div class="herowrap">${img(r.image, "hero", r.title)}<button class="favstar" data-act="fav" data-id="${r.id}" aria-pressed="${!!r.favorite}" aria-label="${r.favorite ? "Favorit entfernen" : "Als Favorit speichern"}">${ic("star", 22, !!r.favorite)}</button></div>
         <div><h2>${esc(r.title)}</h2><div class="sub">${esc(meta)}</div></div>
@@ -2019,16 +2033,15 @@ button.chip { min-height: 44px; }
     const lists = store.radarLists(ui.pid, ui.date);
     const total = Object.keys(store.S.recipes).length;
     const nFav = store.radarFavCount(ui.pid, ui.date, f);
-    const stageTabs = `<div class="steps" role="tablist"><button data-act="stage" data-v="alle" aria-pressed="${!fav}" role="tab"><i>1</i><span><b>Sammeln</b><small>Alle Rezepte</small></span></button><span class="arrow" aria-hidden="true">›</span><button data-act="stage" data-v="fav" aria-pressed="${fav}" role="tab"><i>2</i><span><b>Entscheiden</b><small>${nFav} Favorit${nFav === 1 ? "" : "en"}</small></span></button></div>`;
-    let out = `${stageTabs}<div class="toprow"><span class="note"><button class="link acc" data-act="pickMeal" data-v="">${f.meal === "main" ? "Mittag / Abend" : "Frühstück"} · ändern</button></span><button class="btn sm" data-act="resetDeck">${ic("undo", 16)} Zurücksetzen</button></div>`;
+    let out = `<div class="toprow"><button class="btn sm" data-act="resetDeck">${ic("undo", 16)} Zurücksetzen</button>${fav ? `<button class="btn sm" data-act="stage" data-v="alle">‹ Weiter sammeln</button>` : ""}</div>`;
     const right = fav ? "keep" : "fav";
     if (!total) {
       out += `<div class="empty"><b>Noch keine Rezepte in der Bibliothek</b><span>Füge oben über „+ Link“ ein Rezept hinzu oder lege eins an. Danach kannst du hier Gerichte durchwischen.</span></div>`;
     } else if (!stack.length) {
       out += fav
-        ? `<div class="empty"><b>Keine Favoriten übrig</b><span>${nFav ? "" : "Wische in Stufe 1 Gerichte nach rechts, dann erscheinen sie hier. "}Für ${esc(relDay(ui.date).toLowerCase())} ist hier nichts mehr offen${f.slot || f.maxMinutes ? " (mit diesem Filter)" : ""}.</span><button class="btn primary" data-act="resetDeck">Alles neu starten</button><button class="btn" data-act="stage" data-v="alle">Zu Stufe 1: Alle Rezepte</button></div>`
-        : `<div class="empty"><b>Keine offenen Karten</b><span>Alle passenden Rezepte sind durchgesehen${f.slot || f.maxMinutes ? " (mit diesem Filter)" : ""}. ${nFav ? "Weiter mit deinen Favoriten in Stufe 2." : ""}</span>
-          <button class="btn primary" data-act="resetDeck">Alles neu starten</button><button class="btn" data-act="draw">Weitere Gerichte laden</button>${nFav ? `<button class="btn" data-act="stage" data-v="fav">Zu Stufe 2: Favoriten</button>` : ""}</div>`;
+        ? `<div class="empty"><b>Nichts mehr in der Auswahl</b><span>${nFav ? "" : "Wische Gerichte nach rechts oder hoch, dann erscheinen sie hier. "}Für ${esc(relDay(ui.date).toLowerCase())} ist hier nichts mehr offen${f.slot || f.maxMinutes ? " (mit diesem Filter)" : ""}.</span><button class="btn primary" data-act="resetDeck">Alles neu starten</button><button class="btn" data-act="stage" data-v="alle">Weiter sammeln</button></div>`
+        : `<div class="empty"><b>Keine offenen Karten</b><span>Alle passenden Rezepte sind durchgesehen${f.slot || f.maxMinutes ? " (mit diesem Filter)" : ""}. ${nFav ? "Weiter mit deiner Auswahl." : ""}</span>
+          <button class="btn primary" data-act="resetDeck">Alles neu starten</button><button class="btn" data-act="draw">Weitere Gerichte laden</button>${nFav ? `<button class="btn" data-act="stage" data-v="fav">Weiter zur Auswahl</button>` : ""}</div>`;
     } else {
       out += `<div class="deck">${stack[1] ? tile(stack[1], { next: true, compact: true }) : ""}${tile(stack[0], { swipe: true, compact: true, stage: fav ? "fav" : "alle" })}</div>
         <div class="actions">
@@ -2036,13 +2049,13 @@ button.chip { min-height: 44px; }
           ${fav ? `<button class="abtn skip" data-act="decide" data-a="skip" data-id="${stack[0].id}">${ic("x", 22)}<span>Heute nicht</span></button>
           <button class="abtn" data-act="decide" data-a="later" data-id="${stack[0].id}">${ic("next", 22)}<span>Später</span></button>
           <button class="abtn keep" data-act="decide" data-a="keep" data-id="${stack[0].id}">${ic("check", 22)}<span>Heute kochen</span></button>`
-          : `<button class="abtn skip" data-act="decide" data-a="skip" data-id="${stack[0].id}">${ic("x", 22)}<span>Überspringen</span></button>
-          <button class="abtn favbtn" data-act="fav" data-id="${stack[0].id}" aria-pressed="${!!stack[0].favorite}">${ic("star", 22, !!stack[0].favorite)}<span>${stack[0].favorite ? "Favorit ✓" : "Favorit"}</span></button>`}
-        </div><div class="note" style="text-align:center">${LS.get("hintSeen", false) ? "" : `<b class="hint">${fav ? "← Heute nicht · Heute kochen →" : "← Überspringen · Merken →"}</b><br>`}${fav && stack.length <= nFav ? `Karte ${nFav - stack.length + 1} von ${nFav}` : `noch ${stack.length} Karte${stack.length === 1 ? "" : "n"}`}</div>`;
+          : `<button class="abtn super" data-act="decide" data-a="super" data-id="${stack[0].id}">${ic("star", 22, true)}<span>Superlike</span></button>
+          <button class="abtn keep" data-act="stage" data-v="fav">${ic("next", 22)}<span>Weiter${nFav ? " (" + nFav + ")" : ""}</span></button>`}
+        </div><div class="note" style="text-align:center">${fav ? (stack.length <= nFav ? `Karte ${nFav - stack.length + 1} von ${nFav}` : `noch ${stack.length} Karte${stack.length === 1 ? "" : "n"}`) : (LS.get("hintSeen", false) ? "" : `<b class="hint">← Raus · Auswahl → · ↑ Superlike</b>`)}</div>`;
     }
     const li = (arr, st) => arr.map((x) => `<div><span>${esc(x.title)}</span><button class="btn sm ghost" data-act="decide" data-a="undo" data-id="${x.id}">Zurücknehmen</button></div>`).join("");
-    if (lists.vorgemerkt.length) out += `<div class="section-title"><h3>Heute kochen</h3><span class="note">Portionen unter „Ausgewählt“ einstellen</span></div><div class="minilist">${li(lists.vorgemerkt)}</div>`;
-    if (lists.uebersprungen.length) out += `<div class="section-title"><h3>Heute aussortiert</h3><span class="note">bleibt in der Bibliothek</span></div><div class="minilist">${li(lists.uebersprungen)}</div>`;
+    if (fav && lists.vorgemerkt.length) out += `<div class="section-title"><h3>Heute kochen</h3><span class="note">Portionen unter „Ausgewählt“ einstellen</span></div><div class="minilist">${li(lists.vorgemerkt)}</div>`;
+    if (fav && lists.uebersprungen.length) out += `<div class="section-title"><h3>Heute aussortiert</h3><span class="note">bleibt in der Bibliothek</span></div><div class="minilist">${li(lists.uebersprungen)}</div>`;
     return out;
   }
 
@@ -2050,44 +2063,62 @@ button.chip { min-height: 44px; }
   function bindSwipe() {
     const card = $(".swipe");
     if (!card) return;
-    let x0 = null, y0 = null, dx = 0, active = false, id = null, raf = 0, vx = 0, lx = 0, lt = 0;
-    const keep = $(".stamp.keep", card), skip = $(".stamp.skip", card);
+    let x0 = null, y0 = null, dx = 0, dy = 0, mode = null, id = null, raf = 0, vx = 0, vy = 0, lx = 0, ly = 0, lt = 0;
+    const keep = $(".stamp.keep", card), skip = $(".stamp.skip", card), up = $(".stamp.up", card);
+    const stage2 = ui.radar.stage === "fav";
+    const clear = () => { card.style.transform = ""; keep.style.opacity = 0; skip.style.opacity = 0; if (up) up.style.opacity = 0; };
     card.addEventListener("pointerdown", (e) => {
       if (e.target.closest("button, a, input")) return;
-      x0 = e.clientX; y0 = e.clientY; dx = 0; active = false; id = e.pointerId; lx = x0; lt = performance.now(); vx = 0;
+      x0 = e.clientX; y0 = e.clientY; dx = 0; dy = 0; mode = null; id = e.pointerId; lx = x0; ly = y0; lt = performance.now(); vx = 0; vy = 0;
     });
     card.addEventListener("pointermove", (e) => {
       if (x0 == null || e.pointerId !== id) return;
       const ddx = e.clientX - x0, ddy = e.clientY - y0;
-      if (!active) { if (Math.abs(ddx) > 12 && Math.abs(ddx) > Math.abs(ddy)) { active = true; card.setPointerCapture(id); } else if (Math.abs(ddy) > 12) { x0 = null; return; } else return; }
-      dx = ddx;
-      if (!raf) raf = requestAnimationFrame(() => { raf = 0; card.style.transform = `translate3d(${dx}px,0,0) rotate(${dx / 24}deg)`; keep.style.opacity = Math.max(0, Math.min(1, dx / 90)); skip.style.opacity = Math.max(0, Math.min(1, -dx / 90)); });
-      const now = performance.now(); vx = (e.clientX - lx) / Math.max(1, now - lt); lx = e.clientX; lt = now;
+      if (!mode) {
+        if (Math.abs(ddx) > 12 && Math.abs(ddx) > Math.abs(ddy)) mode = "x";
+        else if (!stage2 && ddy < -12 && Math.abs(ddy) > Math.abs(ddx)) mode = "y";
+        else return;
+        card.setPointerCapture(id);
+      }
+      dx = ddx; dy = ddy;
+      if (!raf) raf = requestAnimationFrame(() => {
+        raf = 0;
+        if (mode === "x") { card.style.transform = `translate3d(${dx}px,0,0) rotate(${dx / 24}deg)`; keep.style.opacity = Math.max(0, Math.min(1, dx / 90)); skip.style.opacity = Math.max(0, Math.min(1, -dx / 90)); }
+        else { card.style.transform = `translate3d(0,${Math.min(0, dy)}px,0)`; if (up) up.style.opacity = Math.max(0, Math.min(1, -dy / 90)); }
+      });
+      const now = performance.now(), dt = Math.max(1, now - lt); vx = (e.clientX - lx) / dt; vy = (e.clientY - ly) / dt; lx = e.clientX; ly = e.clientY; lt = now;
     });
     const end = () => {
       if (x0 == null) return;
       x0 = null;
-      if (!active) return;
+      if (!mode) return;
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      card.classList.add("anim");
+      if (mode === "y") {
+        const lim = Math.min(130, card.offsetHeight * 0.25);
+        if (-dy > lim || (vy < -1.0 && -dy > 60)) {
+          card.style.transform = "translate3d(0,-130%,0)"; card.style.opacity = "0";
+          setTimeout(() => decide(card.dataset.rid, "super"), 260);
+        } else clear();
+        return;
+      }
       const limit = Math.min(150, card.offsetWidth * 0.34);
       if (Math.abs(vx) > 1.2 && Math.abs(dx) > 70) dx = (vx > 0 ? 1 : -1) * (limit + 1);
-      card.classList.add("anim");
-      if (dx > limit && ui.radar.stage === "fav" && ui.radar.meal === "main") { // Stufe 2, rechts: bei Mittag/Abend erst fragen, zu welcher Mahlzeit
-        card.style.transform = ""; keep.style.opacity = 0; skip.style.opacity = 0;
-        ACT.askSlot(card.dataset.rid); return;
+      if (dx > limit && stage2 && ui.radar.meal === "main") { // Stufe 2, rechts: bei Mittag/Abend erst fragen, zu welcher Mahlzeit
+        clear(); ACT.askSlot(card.dataset.rid); return;
       }
       if (Math.abs(dx) > limit) {
         card.style.transform = `translate3d(${dx > 0 ? 130 : -130}%,0,0) rotate(${dx > 0 ? 16 : -16}deg)`; card.style.opacity = "0";
-        const act = dx > 0 ? (ui.radar.stage === "fav" ? "keep" : "fav") : "skip";
+        const act = dx > 0 ? (stage2 ? "keep" : "fav") : "skip";
         setTimeout(() => decide(card.dataset.rid, act), 260);
-      } else { card.style.transform = ""; keep.style.opacity = 0; skip.style.opacity = 0; }
+      } else clear();
     };
     card.addEventListener("pointerup", end); card.addEventListener("pointercancel", end);
   }
 
   async function decide(rid, action, servings, slot) {
     try { LS.set("hintSeen", true); } catch (e) { /* ohne Speicher weiter */ }
-    if (action === "fav") toast("★ Als Favorit gespeichert");
+    if (action === "fav") toast("In der Auswahl"); if (action === "super") toast("★ Superlike – als Favorit gespeichert");
     await run("decide:" + rid, async () => {
       const r = store.S.recipes[rid];
       const copy = action === "del" && r ? JSON.parse(JSON.stringify(r)) : null;
