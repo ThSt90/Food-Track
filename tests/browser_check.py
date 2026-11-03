@@ -184,7 +184,7 @@ def main() -> int:
         page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] * 0.6); page.mouse.down()
         for i in range(1, 11): page.mouse.move(box["x"] + box["width"] / 2 + 2, box["y"] + box["height"] * 0.6 - i * 25)
         page.mouse.up(); page.wait_for_timeout(700)
-        check("Hochwischen = Superlike (in der Auswahl)", "Weiter (2)" in body())
+        check("Hochwischen = Superlike: nur Favorit, Karte bleibt, Auswahl unverändert", "Weiter (1)" in body() and page.get_attribute(".swipe .favstar", "aria-pressed") == "true" and page.get_attribute(".abtn.super", "aria-pressed") == "true")
         page.click(".abtn.keep"); page.wait_for_timeout(500)
         check("Stufe 2 zeigt den Favoriten", page.get_attribute(".swipe", "data-rid") == fav_rid)
         box = page.locator(".swipe").bounding_box()

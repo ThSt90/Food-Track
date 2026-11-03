@@ -431,9 +431,6 @@
         for (const [id, m] of live(dd && dd.meals)) if (id.startsWith("radar-") && m.status === "vorgemerkt") mm[id] = null;
         if (Object.keys(mm).length) await dayPatch(p.id, date, { meals: mm });
       }
-      const ids = {};
-      for (const id of favSet(pid)) ids[id] = null;
-      if (Object.keys(ids).length) await patch("favorites/" + pid, { ids: {} }, { ids });
       for (const key of Object.keys(S.shopping)) if (S.shopping[key] && key.startsWith(date + "__")) await shoppingReset(date, key.slice(date.length + 2)); // auch die Einkaufsliste des Tages
       if (filter.slot) await radarDraw(pid, date, { ...filter, stage: "alle" }, 8);
       return true;
