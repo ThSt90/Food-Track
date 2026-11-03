@@ -1827,7 +1827,7 @@ button.chip { min-height: 44px; }
   const NAV = [["radar", "Neu", "radar"], ["heute", "Ausgewählt", "home"], ["rezepte", "Rezepte", "book"], ["einkauf", "Einkauf", "cart"], ["mehr", "Mehr", "more"]];
   function renderNav() {
     const cur = ["historie", "gewicht", "profil"].includes(ui.view) ? "mehr" : ui.view;
-    $("#nav").innerHTML = `${["radar", "rezepte"].includes(cur) ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 24)}<span>${t}</span></button>`).join("")}</div>`;
+    $("#nav").innerHTML = `${cur === "rezepte" ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 24)}<span>${t}</span></button>`).join("")}</div>`;
   }
 
   function renderToast() {
@@ -2016,10 +2016,10 @@ button.chip { min-height: 44px; }
       out += `<div class="deck">${stack[1] ? tile(stack[1], { next: true, compact: true }) : ""}${tile(stack[0], { swipe: true, compact: true, stage: fav ? "fav" : "alle" })}</div>
         <div class="actions">
           <div class="al"><button class="round small" data-act="undoDecision" aria-label="Letzte Entscheidung rückgängig" ${ui.lastDecision ? "" : "disabled"}>${ic("undo", 20)}</button><span>Zurück</span></div>
-          <div class="al"><button class="round skip" data-act="decide" data-a="${fav ? "later" : "skip"}" data-id="${stack[0].id}" aria-label="${fav ? "Überspringen" : "Nicht in die engere Auswahl"}">${ic(fav ? "next" : "x", 26)}</button><span>Überspringen</span></div>
+          <div class="al"><button class="round skip" data-act="decide" data-a="skip" data-id="${stack[0].id}" aria-label="${fav ? "Heute nicht" : "Nicht in die engere Auswahl"}">${ic("x", 26)}</button><span>${fav ? "Heute nicht" : "Überspringen"}</span></div>${fav ? `<div class="al"><button class="round small" data-act="decide" data-a="later" data-id="${stack[0].id}" aria-label="Später nochmal ansehen">${ic("next", 20)}</button><span>Später</span></div>` : ""}
           <div class="al"><button class="round ${fav ? "keep" : "fav"}" data-act="decide" data-a="${right}" data-id="${stack[0].id}" aria-label="${fav ? "Heute kochen" : "In die engere Auswahl"}">${ic(fav ? "check" : "star", fav ? 30 : 26, !fav)}</button><span>${fav ? "Heute kochen" : "Merken"}</span></div>
           ${fav ? "" : `<div class="al"><button class="round small" data-act="draw" aria-label="Weitere Gerichte laden">${ic("plus", 20)}</button><span>Mehr laden</span></div>`}
-        </div><div class="note" style="text-align:center">${LS.get("hintSeen", false) ? "" : `<b class="hint">${fav ? "← Überspringen · Heute kochen →" : "← Überspringen · Merken →"}</b><br>`}${fav && stack.length <= nFav ? `Karte ${nFav - stack.length + 1} von ${nFav}` : `noch ${stack.length} Karte${stack.length === 1 ? "" : "n"}`}</div>`;
+        </div><div class="note" style="text-align:center">${LS.get("hintSeen", false) ? "" : `<b class="hint">${fav ? "← Heute nicht · Heute kochen →" : "← Überspringen · Merken →"}</b><br>`}${fav && stack.length <= nFav ? `Karte ${nFav - stack.length + 1} von ${nFav}` : `noch ${stack.length} Karte${stack.length === 1 ? "" : "n"}`}</div>`;
     }
     const li = (arr, st) => arr.map((x) => `<div><span>${esc(x.title)}</span><button class="btn sm ghost" data-act="decide" data-a="undo" data-id="${x.id}">Zurücknehmen</button></div>`).join("");
     if (lists.vorgemerkt.length) out += `<div class="section-title"><h3>Heute kochen</h3><span class="note">Portionen unter „Ausgewählt“ einstellen</span></div><div class="minilist">${li(lists.vorgemerkt)}</div>`;
@@ -2059,8 +2059,8 @@ button.chip { min-height: 44px; }
       }
       if (Math.abs(dx) > limit) {
         card.style.transform = `translate3d(${dx > 0 ? 130 : -130}%,0,0) rotate(${dx > 0 ? 16 : -16}deg)`; card.style.opacity = "0";
-        const act = dx > 0 ? (ui.radar.stage === "fav" ? "keep" : "fav") : (ui.radar.stage === "fav" ? "later" : "skip");
-        setTimeout(() => act === "later" ? ACT.later(card.dataset.rid) : decide(card.dataset.rid, act), 260);
+        const act = dx > 0 ? (ui.radar.stage === "fav" ? "keep" : "fav") : "skip";
+        setTimeout(() => decide(card.dataset.rid, act), 260);
       } else { card.style.transform = ""; keep.style.opacity = 0; skip.style.opacity = 0; }
     };
     card.addEventListener("pointerup", end); card.addEventListener("pointercancel", end);
