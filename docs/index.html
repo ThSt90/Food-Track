@@ -2279,9 +2279,9 @@ Regeln:
     const open = s.items.filter((i) => !i.checked && !i.have), done = s.items.filter((i) => i.checked || i.have);
     const showDone = !!ui.showDone;
     const row = (i) => `<label class="${i.checked || i.have ? "done" : ""}"><input type="checkbox" data-change="shopCheck" data-key="${esc(i.key)}" ${i.checked ? "checked" : ""} aria-label="${esc(i.name)} gekauft">
-      <span><span class="n">${esc(i.name)}</span><span class="s">${esc(i.sources)}${i.extra ? " · zusätzlich ohne Mengenangabe" : ""}${i.have ? " · schon vorhanden" : ""}${i.override != null ? " · Menge angepasst" : ""}</span></span>
+      <span><span class="n">${esc(i.name)}</span>${[i.extra ? "zusätzlich ohne Mengenangabe" : "", i.have ? "schon vorhanden" : "", i.override != null ? "Menge angepasst" : ""].filter(Boolean).map((t) => `<span class="s">${t}</span>`).join("")}</span>
       <span style="display:flex;gap:6px;align-items:center"><button class="btn sm ghost a" data-act="shopAmount" data-key="${esc(i.key)}">${i.shown == null ? "nach Bedarf" : `${deA(i.shown)} ${esc(i.unit || "")}`}</button>
-        ${i.auto ? `<button class="btn sm ${i.have ? "" : "ghost"}" data-act="shopHave" data-key="${esc(i.key)}" title="Schon im Haus">${i.have ? "da" : "da?"}</button>` : `<button class="btn sm ghost" data-act="shopDel" data-id="${esc(i.id)}" aria-label="Entfernen">${ic("trash", 15)}</button>`}</span></label>`;
+        ${i.auto ? "" : `<button class="btn sm ghost" data-act="shopDel" data-id="${esc(i.id)}" aria-label="Entfernen">${ic("trash", 15)}</button>`}</span></label>`;
     return `<div class="toprow"><span class="note">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</span><button class="btn sm" data-act="shopResetAll">${ic("undo", 16)} Alles zurücksetzen</button></div><div class="filters">${scopes.map(([k, t]) => `<button class="chip line" data-act="scope" data-v="${k}" aria-pressed="${s.scope === k}">${esc(t)}</button>`).join("")}</div>
       <section class="card"><div class="row"><div><h2>Einkaufsliste</h2><div class="sub">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</div></div>${ring(String(done.length), s.items.length ? (done.length / s.items.length) * 100 : 0, "hi", "erledigt")}</div>
       ${s.meals.length ? `<div class="minilist">${s.meals.map((m) => `<div><span><b>${esc(m.title)}</b>${ps.length > 1 && s.scope === "alle" ? ` <span class="note">(${esc(m.who)})</span>` : ""}<br><span class="note">${esc(SLOT_LABEL[m.slot] || "")} · Rezept ist für ${deA(m.recipeServings)}</span></span>
@@ -2572,12 +2572,23 @@ Regeln:
       <div class="btns">${m.recipeId && m.recipeExists ? `<button class="btn" data-act="openRecipe" data-id="${m.recipeId}">Rezept öffnen</button>` : ""}<button class="btn danger" data-act="delMeal" data-id="${m.id}">Eintrag entfernen</button></div>`;
   }
 
+  /** Auswahlliste statt Tastatur: sinnvolle Schritte je Einheit, der aktuelle Wert ist immer enthalten. */
+  function amountOptions(it) {
+    const u = String(it.unit || "").toLowerCase(), cur = it.shown;
+    const vals = [];
+    const range = (a, b, st) => { for (let v = a; v <= b + 1e-9; v += st) vals.push(Math.round(v * 100) / 100); };
+    if (u === "g" || u === "ml") { range(5, 100, 5); range(125, 500, 25); range(550, 1000, 50); range(1100, 3000, 100); }
+    else if (u === "kg" || u === "l") range(0.25, 5, 0.25);
+    else { range(0.25, 3, 0.25); range(3.5, 10, 0.5); range(11, 30, 1); }
+    if (cur != null && !vals.includes(cur)) { vals.push(cur); vals.sort((a, b) => a - b); }
+    return `<option value="" ${cur == null ? "selected" : ""}>nach Bedarf</option>` + vals.map((v) => `<option value="${v}" ${v === cur ? "selected" : ""}>${deA(v)}${it.unit ? " " + esc(it.unit) : ""}</option>`).join("");
+  }
   function sheetShopAmount() {
     const s = store.shopping(today(), ui.scope);
     const it = s.items.find((i) => i.key === ui.sheet.key);
     if (!it) return `<div class="note">Posten nicht mehr vorhanden.</div>`;
     return `<form data-submit="shopAmount" data-key="${esc(it.key)}" class="fgrid"><div class="full"><b>${esc(it.name)}</b><div class="note">${it.auto ? `Berechnet: ${it.amount == null ? "ohne Menge" : deA(it.amount) + " " + esc(it.unit || "")}` : "Eigener Posten"}</div></div>
-      <label class="f full">Menge (${esc(it.unit || "ohne Einheit")})<input id="sa-amount" type="number" inputmode="decimal" min="0" step="any" value="${it.shown ?? ""}"></label>
+      <label class="f full">Menge (${esc(it.unit || "ohne Einheit")})<select id="sa-amount">${amountOptions(it)}</select></label>
       <button class="btn primary">Übernehmen</button>${it.auto && it.override != null ? `<button class="btn" type="button" data-act="shopReset" data-key="${esc(it.key)}">Berechnete Menge</button>` : ""}</form>`;
   }
 
