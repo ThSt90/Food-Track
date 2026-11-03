@@ -371,6 +371,14 @@ button.chip { min-height: 44px; }
 .rcard.isfav { border-color: #f2b630; box-shadow: 0 0 0 1px #f2b630; }
 .round.fav[aria-pressed="true"] { background: #f2b630; color: #2b2724; border-color: transparent; }
 
+.actions { gap: 8px; padding-left: 4px; padding-right: 4px; }
+.abtn { flex: 1; min-height: 64px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); color: var(--text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow); }
+.abtn.ghost { flex: 0 0 72px; color: var(--muted); font-weight: 700; }
+.abtn:disabled { opacity: .45; }
+.abtn.skip { color: var(--bad); }
+.abtn.keep { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.abtn.favbtn[aria-pressed="true"] { background: #f2b630; color: #2b2724; border-color: transparent; }
+
 </style>
 <script>
 /* Food Radar – eigenständiger Betrieb (GitHub Pages + Supabase).
@@ -2024,10 +2032,12 @@ button.chip { min-height: 44px; }
     } else {
       out += `<div class="deck">${stack[1] ? tile(stack[1], { next: true, compact: true }) : ""}${tile(stack[0], { swipe: true, compact: true, stage: fav ? "fav" : "alle" })}</div>
         <div class="actions">
-          <div class="al"><button class="round small" data-act="undoDecision" aria-label="Letzte Entscheidung rückgängig" ${ui.lastDecision ? "" : "disabled"}>${ic("undo", 20)}</button><span>Zurück</span></div>
-          <div class="al"><button class="round skip" data-act="decide" data-a="skip" data-id="${stack[0].id}" aria-label="${fav ? "Heute nicht" : "Nicht in die engere Auswahl"}">${ic("x", 26)}</button><span>${fav ? "Heute nicht" : "Überspringen"}</span></div>${fav ? `<div class="al"><button class="round small" data-act="decide" data-a="later" data-id="${stack[0].id}" aria-label="Später nochmal ansehen">${ic("next", 20)}</button><span>Später</span></div>` : ""}
-          <div class="al"><button class="round ${fav ? "keep" : "fav"}" ${!fav && stack[0].favorite ? 'aria-pressed="true"' : ""} data-act="decide" data-a="${right}" data-id="${stack[0].id}" aria-label="${fav ? "Heute kochen" : "In die engere Auswahl"}">${ic(fav ? "check" : "star", fav ? 30 : 26, !fav)}</button><span>${fav ? "Heute kochen" : stack[0].favorite ? "★ Favorit" : "Favorit"}</span></div>
-          ${fav ? "" : `<div class="al"><button class="round small" data-act="draw" aria-label="Weitere Gerichte laden">${ic("plus", 20)}</button><span>Mehr laden</span></div>`}
+          <button class="abtn ghost" data-act="undoDecision" aria-label="Letzte Entscheidung rückgängig" ${ui.lastDecision ? "" : "disabled"}>${ic("undo", 22)}<span>Zurück</span></button>
+          ${fav ? `<button class="abtn skip" data-act="decide" data-a="skip" data-id="${stack[0].id}">${ic("x", 22)}<span>Heute nicht</span></button>
+          <button class="abtn" data-act="decide" data-a="later" data-id="${stack[0].id}">${ic("next", 22)}<span>Später</span></button>
+          <button class="abtn keep" data-act="decide" data-a="keep" data-id="${stack[0].id}">${ic("check", 22)}<span>Heute kochen</span></button>`
+          : `<button class="abtn skip" data-act="decide" data-a="skip" data-id="${stack[0].id}">${ic("x", 22)}<span>Überspringen</span></button>
+          <button class="abtn favbtn" data-act="fav" data-id="${stack[0].id}" aria-pressed="${!!stack[0].favorite}">${ic("star", 22, !!stack[0].favorite)}<span>${stack[0].favorite ? "Favorit ✓" : "Favorit"}</span></button>`}
         </div><div class="note" style="text-align:center">${LS.get("hintSeen", false) ? "" : `<b class="hint">${fav ? "← Heute nicht · Heute kochen →" : "← Überspringen · Merken →"}</b><br>`}${fav && stack.length <= nFav ? `Karte ${nFav - stack.length + 1} von ${nFav}` : `noch ${stack.length} Karte${stack.length === 1 ? "" : "n"}`}</div>`;
     }
     const li = (arr, st) => arr.map((x) => `<div><span>${esc(x.title)}</span><button class="btn sm ghost" data-act="decide" data-a="undo" data-id="${x.id}">Zurücknehmen</button></div>`).join("");
