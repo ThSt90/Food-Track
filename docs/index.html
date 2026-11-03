@@ -19,7 +19,7 @@
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) { 
-    --bg: #f6f2ed; --surface: #fffdfa; --surface-2: #efe9e1; --line: #e2d9ce; --text: #2b2724; --muted: #7a7068;
+    --bg: #f6f2ed; --surface: #fffdfa; --surface-2: #efe9e1; --line: #e2d9ce; --text: #2b2724; --muted: #675d55;
     --accent: #5f8570; --accent-2: #b8786b; --accent-soft: #e3ede6; --accent-ink: #ffffff;
     --ok: #4d7a5f; --ok-soft: #e1eee5; --warn: #8f6a1c; --warn-soft: #f7ecd2; --bad: #b4503f; --bad-soft: #f6e0db;
     --hot-1: #c9867a; --hot-2: #b8786b; --glass: rgba(246, 242, 237, .88);
@@ -29,7 +29,7 @@
    }
 }
 :root[data-theme="light"] { 
-    --bg: #f6f2ed; --surface: #fffdfa; --surface-2: #efe9e1; --line: #e2d9ce; --text: #2b2724; --muted: #7a7068;
+    --bg: #f6f2ed; --surface: #fffdfa; --surface-2: #efe9e1; --line: #e2d9ce; --text: #2b2724; --muted: #675d55;
     --accent: #5f8570; --accent-2: #b8786b; --accent-soft: #e3ede6; --accent-ink: #ffffff;
     --ok: #4d7a5f; --ok-soft: #e1eee5; --warn: #8f6a1c; --warn-soft: #f7ecd2; --bad: #b4503f; --bad-soft: #f6e0db;
     --hot-1: #c9867a; --hot-2: #b8786b; --glass: rgba(246, 242, 237, .88);
@@ -56,12 +56,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .radar::before { content: ""; position: absolute; inset: -2px; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 68%, var(--accent) 100%); opacity: .8; animation: sweep 3.4s linear infinite; }
 @keyframes sweep { to { transform: rotate(360deg); } }
 .who { display: flex; gap: 6px; }
-.who button { width: 36px; height: 36px; border-radius: 50%; border: 2px solid transparent; background: var(--surface-2); color: var(--muted); font-weight: 800; cursor: pointer; }
+.who button { width: 44px; height: 44px; border-radius: 50%; border: 2px solid transparent; background: var(--surface-2); color: var(--muted); font-weight: 800; cursor: pointer; }
 .who button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--surface); box-shadow: 0 0 0 2px var(--hot-1); }
 .datebar { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .datebar b { font-size: 15px; }
 .datebar .sub { color: var(--muted); font-size: 13px; }
-.iconbtn { min-width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: inline-grid; place-items: center; padding: 0 10px; }
+.iconbtn { min-width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: inline-grid; place-items: center; padding: 0 10px; }
 
 /* ------------------------------------------------------------------ Karten & Bausteine */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 14px; min-width: 0; }
@@ -143,7 +143,7 @@ button.chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .btn.danger { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
 .btn.ghost { background: transparent; }
-.btn.sm { min-height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px; }
+.btn.sm { min-height: 44px; padding: 0 12px; border-radius: 10px; font-size: 13px; }
 .btn:disabled { opacity: .5; cursor: default; }
 .btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -204,7 +204,7 @@ button.chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--
 .round { width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); cursor: pointer; display: grid; place-items: center; }
 .round.skip { color: var(--bad); } .round.keep { color: var(--ok); width: 68px; height: 68px; } .round.fav { color: var(--hot-1); }
 .round.fav[aria-pressed="true"] { background: linear-gradient(135deg, var(--hot-1), var(--hot-2)); color: #fff; border-color: transparent; }
-.round.small { width: 46px; height: 46px; color: var(--muted); }
+.round.small { width: 48px; height: 48px; color: var(--muted); }
 .why { font-size: 12.5px; color: var(--muted); }
 .ings { display: flex; flex-wrap: wrap; gap: 6px; }
 .ings span { font-size: 13px; padding: 4px 10px; border-radius: 8px; background: var(--surface-2); }
@@ -351,6 +351,16 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
 .cat-h{margin:18px 0 8px;font-size:15px;display:flex;gap:8px;align-items:center}.cat-n{font-size:12px;color:var(--muted,#888);font-weight:500}
 
 .guck{font-size:22px;font-weight:700;color:var(--accent-text);text-align:center;margin-bottom:6px}
+
+/* UX-Überarbeitung */
+.al { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.al span { font-size: 12px; font-weight: 700; color: var(--muted); }
+.hint { color: var(--accent-text); }
+button.chip { min-height: 44px; }
+.fold > summary { cursor: pointer; list-style: none; display: flex; flex-direction: column; gap: 2px; min-height: 44px; justify-content: center; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold[open] > summary { margin-bottom: 10px; }
+.wrap { padding-bottom: 160px; }
 
 </style>
 <script>
@@ -743,7 +753,7 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
     return { perPortion: rnd(per), quality, missing, rows, computed: rnd(computed), original: rnd(original), deviationPct, servings };
   }
 
-  const QUALITY_LABEL = { original: "Originalwert", geschaetzt: "geschätzt", berechnet: "berechnet", unvollstaendig: "unvollständig", fehlt: "keine Nährwerte" };
+  const QUALITY_LABEL = { original: "Originalwert", geschaetzt: "geschätzt", berechnet: "geschätzt (aus Zutaten)", unvollstaendig: "unvollständig", fehlt: "keine Nährwerte" };
 
   /** „Proteinreich“ nach EU-VO 1924/2006: mindestens 20 % der Energie aus Protein. */
   const derivedTags = (per) => (per && per.kcal > 0 && per.protein != null && (per.protein * 4) / per.kcal >= 0.2 ? ["proteinreich"] : []);
@@ -1808,16 +1818,16 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
     const who = ps.map((p) => `<button data-act="pid" data-id="${p.id}" aria-pressed="${p.id === ui.pid}" title="${esc(p.name)}">${esc(initials(p.name) || p.id)}</button>`).join("");
     const d = ui.date;
     const dateBar = withDate ? `<div class="datebar"><button class="iconbtn" data-act="day" data-n="-1" aria-label="Vortag">${ic("left", 18)}</button>
-      <div style="text-align:center"><b>${esc(relDay(d))}</b><div class="sub">${esc(fmtDate(d))} · ${esc((store.profile(ui.pid) || {}).name || "")}</div></div>
+      <div style="text-align:center"><b>${esc(relDay(d))}</b><div class="sub">${esc(fmtDate(d))}</div></div>
       <button class="iconbtn" data-act="day" data-n="1" aria-label="Folgetag">${ic("right", 18)}</button></div>` : "";
-    return `<header class="top"><button class="iconbtn" data-act="theme" aria-label="Hell oder dunkel umschalten" title="Hell / Dunkel" style="margin-right:auto">${themeIsDark() ? "☀︎" : "☾"}</button><div class="who" role="group" aria-label="Person">${who}</div></header>${dateBar}`;
+    return `<header class="top"><button class="iconbtn" data-act="theme" aria-label="Hell oder dunkel umschalten" title="Hell / Dunkel" style="margin-right:auto">${themeIsDark() ? "☀︎" : "☾"}</button>${ps.length > 1 ? `<div class="who" role="group" aria-label="Person">${who}</div>` : ""}</header>${dateBar}`;
   }
 
   const assetUrl = (id) => (window.FR_ASSET ? window.FR_ASSET(id) : "/_blob/" + id);
   const NAV = [["radar", "Neu", "radar"], ["heute", "Ausgewählt", "home"], ["rezepte", "Rezepte", "book"], ["einkauf", "Einkauf", "cart"], ["mehr", "Mehr", "more"]];
   function renderNav() {
     const cur = ["historie", "gewicht", "profil"].includes(ui.view) ? "mehr" : ui.view;
-    $("#nav").innerHTML = `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button><div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 24)}<span>${t}</span></button>`).join("")}</div>`;
+    $("#nav").innerHTML = `${["radar", "rezepte"].includes(cur) ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 24)}<span>${t}</span></button>`).join("")}</div>`;
   }
 
   function renderToast() {
@@ -1864,9 +1874,9 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
     const over = b.remaining != null && b.remaining < 0;
     const planOver = b.afterPlan != null && b.afterPlan < 0;
     if (st.goalKcal != null) extra += `<section class="card" aria-label="Kalorienbudget">
-      <div class="row"><div><h2>Kalorien heute</h2><div class="sub">${st.goalKcal != null ? `Ziel ${de(st.goalKcal)} kcal${b.sport ? ` · Sport +${de(b.sport)}` : ""}${st.frozen ? "" : ""}` : "Ziel noch unbekannt"}</div></div>
+      <div class="row"><div><h2>Kalorien heute</h2><div class="sub">${st.goalKcal != null ? `Ziel ${de(st.goalKcal)} kcal${b.sport ? ` · Sport +${de(b.sport)}` : ""}${st.frozen ? "" : ""}` : "Ziel: keine Angabe"}</div></div>
       ${ring(total ? de(eatenPct) + "%" : "–", eatenPct, over ? "bad" : eatenPct > 85 ? "low" : "hi", "gegessen")}</div>
-      <div class="chips">${b.remaining == null ? `<span class="chip">Budget unbekannt</span>` : over ? `<span class="chip bad">überschritten</span>` : planOver ? `<span class="chip warn">Plan zu groß</span>` : `<span class="chip ok">im Budget</span>`}
+      <div class="chips">${b.remaining == null ? `<span class="chip">Budget: keine Angabe</span>` : over ? `<span class="chip bad">überschritten</span>` : planOver ? `<span class="chip warn">Plan zu groß</span>` : `<span class="chip ok">im Budget</span>`}
         ${st.sportDone ? `<span class="chip acc">Sport ✓</span>` : ""}${st.complete ? `<span class="chip line">vollständig erfasst</span>` : ""}
         ${d.unknown ? `<span class="chip warn">Werte unvollständig</span>` : ""}</div>
       <div class="strip"><span class="eyebrow">Tag</span>
@@ -1894,7 +1904,7 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
       out += `<section class="slot ${key === "abend" ? "dinner" : ""}"><div class="slot-head"><h3>${key === "abend" ? "Heute Abend" : esc(s.label)}</h3>
         <button class="btn sm" data-act="addMeal" data-slot="${key}">${ic("plus", 16)} Eintrag</button></div>
         ${s.multiOpen ? `<div class="note">Mehrere Gerichte vorgemerkt – die Prognose zählt alle. Entferne, was du nicht isst.</div>` : ""}
-        ${s.meals.length ? s.meals.map(mealRow).join("") : `<div class="note">${key === "abend" ? "Noch nichts geplant. Unter „Entdecken“ erst Favoriten sammeln, dann daraus fürs Kochen wählen – oder einen Eintrag anlegen." : "Kein Eintrag."}</div>`}</section>`;
+        ${s.meals.length ? s.meals.map(mealRow).join("") : `<div class="note">${key === "abend" ? "Noch nichts geplant. Unter „Entdecken“ erst Favoriten sammeln, dann daraus fürs Kochen wählen – oder einen Eintrag anlegen." : "Kein Eintrag."}${key === "abend" ? `<div><button class="btn sm primary" data-act="view" data-v="radar" style="margin-top:8px">Zu „Neu“ wechseln</button></div>` : ""}</div>`}</section>`;
     }
 
     // Sport
@@ -1935,7 +1945,7 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
     const k = r.nut.perPortion.kcal;
     const f = L.fit(k, bn.remaining);
     const meta = [CAT_SHORT[r.category], r.prepMinutes ? `${r.prepMinutes} Min` : null, `${deA(r.servings)} ${r.servings === 1 ? "Portion" : "Portionen"}`].filter(Boolean).join(" · ");
-    const feats = [...r.autoTags.map((t) => `<span class="chip hot" title="berechnet: mind. 20 % der Energie aus Protein">${esc(t)}</span>`), ...r.tags.map((t) => `<span class="chip acc">${esc(t)}</span>`)];
+    const feats = [...r.autoTags.map((t) => `<span class="chip hot" title="mind. 20 % der Energie aus Protein">${esc(t)}</span>`), ...r.tags.map((t) => `<span class="chip acc">${esc(t)}</span>`)];
     const effort = { leicht: 1, mittel: 2, aufwendig: 3 }[r.effortShown] || 0;
     const open = ui.open.has("ing:" + r.id);
     const used = bn.total != null && bn.remaining != null ? bn.total - bn.remaining : 0;
@@ -1959,14 +1969,14 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
         <div class="v"><b>${r.nut.perPortion.carbs == null ? "–" : de(r.nut.perPortion.carbs)}</b><small>KH g</small></div><span class="sep">›</span>
         <div class="v"><b>${r.nut.perPortion.fat == null ? "–" : de(r.nut.perPortion.fat)}</b><small>Fett g</small></div></div>
       <div class="pot ${f.after != null && f.after < 0 ? "over" : ""}">
-        <div class="eyebrow">Kalorienpotenzial · danach frei</div>
-        ${bn.remaining == null ? `<div class="sub">Budget unbekannt – trage im Profil Größe und Gewicht ein.</div>` : `
+        <div class="eyebrow">Passt ins Tagesbudget · danach frei</div>
+        ${bn.remaining == null ? `<div class="sub">Budget: keine Angabe – trage im Profil Größe und Gewicht ein.</div>` : `
         <div class="head"><div class="big">${de(f.after ?? 0)}<small>kcal</small></div>
           <div class="side"><b>${k == null ? "Wert fehlt" : "− " + de(k) + " kcal"}</b><span>von ${de(bn.remaining)} frei</span></div></div>
         ${k != null ? track(bn.total, used, k, { pin: true, pinAdd: true, flag: bn.planned ? Math.min(bn.total, used + bn.planned) : null }) : ""}
         <div class="legend"><span>0</span><span>${PIN.replace('class="mark"', 'style="width:12px;height:14px;color:var(--text)"')} Gericht</span>${bn.planned ? `<span>${FLAG.replace('class="mark flag"', 'style="width:12px;height:14px;color:var(--accent-2)"')} schon geplant</span>` : ""}<span>Budget ${de(bn.total)}</span></div>`}
       </div>
-      <div class="kv"><div><span class="eyebrow">Aufwand</span><b>${r.prepMinutes ? `≈ ${r.prepMinutes} Min` : "–"}</b><small>${esc(r.effortShown || "unbekannt")}${r.effortDerived && r.effortShown ? " (aus der Zeit)" : ""}</small></div>
+      <div class="kv"><div><span class="eyebrow">Aufwand</span><b>${r.prepMinutes ? `≈ ${r.prepMinutes} Min` : "–"}</b><small>${esc(r.effortShown || "keine Angabe")}${r.effortDerived && r.effortShown ? " (aus der Zeit)" : ""}</small></div>
         <div><span class="eyebrow">Ganzes Rezept</span><b>${k == null ? "–" : de(k * r.servings) + " kcal"}</b><small>${deA(r.servings)} ${r.servings === 1 ? "Portion" : "Portionen"}</small></div></div>
       ${r.mainIngredients.length ? `<div class="ings">${r.mainIngredients.map((n) => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
       ${open ? ingredientList(r, opts.fac) : ""}
@@ -2005,14 +2015,14 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
     } else {
       out += `<div class="deck">${stack[1] ? tile(stack[1], { next: true, compact: true }) : ""}${tile(stack[0], { swipe: true, compact: true, stage: fav ? "fav" : "alle" })}</div>
         <div class="actions">
-          <button class="round small" data-act="undoDecision" aria-label="Letzte Entscheidung rückgängig" ${ui.lastDecision ? "" : "disabled"}>${ic("undo", 20)}</button>
-          <button class="round skip" data-act="decide" data-a="${fav ? "later" : "skip"}" data-id="${stack[0].id}" aria-label="${fav ? "Überspringen" : "Nicht in die engere Auswahl"}">${ic(fav ? "next" : "x", 26)}</button>
-          <button class="round ${fav ? "keep" : "fav"}" data-act="decide" data-a="${right}" data-id="${stack[0].id}" aria-label="${fav ? "Heute kochen" : "In die engere Auswahl"}">${ic(fav ? "check" : "star", fav ? 30 : 26, !fav)}</button>
-          ${fav ? "" : `<button class="round small" data-act="draw" aria-label="Weitere Gerichte laden">${ic("plus", 20)}</button>`}
-        </div><div class="note" style="text-align:center">${fav ? "← überspringen · heute kochen →" : "← nicht in die Auswahl · Auswahl →"}<br>noch ${stack.length} Karte${stack.length === 1 ? "" : "n"}</div>`;
+          <div class="al"><button class="round small" data-act="undoDecision" aria-label="Letzte Entscheidung rückgängig" ${ui.lastDecision ? "" : "disabled"}>${ic("undo", 20)}</button><span>Zurück</span></div>
+          <div class="al"><button class="round skip" data-act="decide" data-a="${fav ? "later" : "skip"}" data-id="${stack[0].id}" aria-label="${fav ? "Überspringen" : "Nicht in die engere Auswahl"}">${ic(fav ? "next" : "x", 26)}</button><span>Überspringen</span></div>
+          <div class="al"><button class="round ${fav ? "keep" : "fav"}" data-act="decide" data-a="${right}" data-id="${stack[0].id}" aria-label="${fav ? "Heute kochen" : "In die engere Auswahl"}">${ic(fav ? "check" : "star", fav ? 30 : 26, !fav)}</button><span>${fav ? "Heute kochen" : "Merken"}</span></div>
+          ${fav ? "" : `<div class="al"><button class="round small" data-act="draw" aria-label="Weitere Gerichte laden">${ic("plus", 20)}</button><span>Mehr laden</span></div>`}
+        </div><div class="note" style="text-align:center">${LS.get("hintSeen", false) ? "" : `<b class="hint">${fav ? "← Überspringen · Heute kochen →" : "← Überspringen · Merken →"}</b><br>`}${fav && stack.length <= nFav ? `Karte ${nFav - stack.length + 1} von ${nFav}` : `noch ${stack.length} Karte${stack.length === 1 ? "" : "n"}`}</div>`;
     }
     const li = (arr, st) => arr.map((x) => `<div><span>${esc(x.title)}</span><button class="btn sm ghost" data-act="decide" data-a="undo" data-id="${x.id}">Zurücknehmen</button></div>`).join("");
-    if (lists.vorgemerkt.length) out += `<div class="section-title"><h3>Heute kochen</h3><span class="note">Portionen unter „Heute“ einstellen</span></div><div class="minilist">${li(lists.vorgemerkt)}</div>`;
+    if (lists.vorgemerkt.length) out += `<div class="section-title"><h3>Heute kochen</h3><span class="note">Portionen unter „Ausgewählt“ einstellen</span></div><div class="minilist">${li(lists.vorgemerkt)}</div>`;
     if (lists.uebersprungen.length) out += `<div class="section-title"><h3>Heute aussortiert</h3><span class="note">bleibt in der Bibliothek</span></div><div class="minilist">${li(lists.uebersprungen)}</div>`;
     return out;
   }
@@ -2057,6 +2067,7 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
   }
 
   async function decide(rid, action, servings, slot) {
+    try { LS.set("hintSeen", true); } catch (e) { /* ohne Speicher weiter */ }
     await run("decide:" + rid, async () => {
       const r = store.S.recipes[rid];
       const copy = action === "del" && r ? JSON.parse(JSON.stringify(r)) : null;
@@ -2266,7 +2277,7 @@ Regeln:
       ${s.meals.length ? `<div class="minilist">${s.meals.map((m) => `<div><span><b>${esc(m.title)}</b>${ps.length > 1 && s.scope === "alle" ? ` <span class="note">(${esc(m.who)})</span>` : ""}<br><span class="note">${esc(SLOT_LABEL[m.slot] || "")} · Rezept ist für ${deA(m.recipeServings)}</span></span>
         <span class="chip line" style="gap:2px;padding:2px 4px"><button class="link" style="padding:0 10px" data-act="svMeal" data-pid="${m.pid}" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button>für ${deA(m.servings)} Pers.<button class="link" style="padding:0 10px" data-act="svMeal" data-pid="${m.pid}" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></span></div>`).join("")}</div>` : ""}
       ${s.items.length ? `<div class="shop">${open.map(row).join("")}</div>${!open.length && done.length ? `<div class="note">Alles abgehakt.</div>` : ""}${done.length ? `<button class="link acc" data-act="toggleDone">${showDone ? "Erledigte ausblenden" : `${done.length} erledigt/vorhanden ausgeblendet – anzeigen`}</button>${showDone ? `<div class="shop">${done.map(row).join("")}</div>` : ""}` : ""}`
-        : `<div class="empty"><b>Noch nichts geplant</b><span>Wähle unter „Entdecken“ Gerichte für heute oder plane sie unter „Heute“ – die Zutaten erscheinen hier automatisch und passen sich an Portionen an.</span></div>`}
+        : `<div class="empty"><b>Noch nichts geplant</b><span>Wähle unter „Neu“ Gerichte für heute oder plane sie unter „Ausgewählt“ – die Zutaten erscheinen hier automatisch und passen sich an Portionen an.</span><button class="btn primary" data-act="view" data-v="radar">Gerichte in „Neu“ wählen</button></div>`}
             ${open.length ? `<button class="btn" data-act="shopShare">Offene Posten teilen / kopieren (z. B. für Bring!)</button>` : ""}
       <form class="fgrid three" data-submit="shopAdd"><input id="shop-n" placeholder="Eigener Posten" aria-label="Eigener Posten" required class="full">
         <input id="shop-a" inputmode="decimal" placeholder="Menge" aria-label="Menge"><input id="shop-u" placeholder="Einheit" aria-label="Einheit"><button class="btn">${ic("plus", 16)} Hinzufügen</button></form>
@@ -2276,17 +2287,19 @@ Regeln:
   // ================================================================== Mehr, Historie, Gewicht
   function vMehr() {
     const curHex = accentHex(), saved = LS.get("accentSaved", []) || [], savedHere = curHex != null && saved.some((c) => String(c.hex).toLowerCase() === curHex);
-    const palette = `<section class="card"><div class="row"><div><h2>Farbe der App</h2><div class="sub">Genau diese Farbe wird verwendet – gilt nur auf diesem Gerät</div></div></div>
+    const palette = `<details class="card fold" ${ui.palOpen ? "open" : ""}><summary data-act="palToggle"><h2>Farbe der App</h2><span class="sub">Gilt nur auf diesem Gerät</span></summary>
       <div class="swatches" role="radiogroup" aria-label="Akzentfarbe">${ACCENTS.map(([hex, n]) => `<button class="sw-c" role="radio" aria-checked="${curHex === hex}" aria-label="${n}" title="${n}" data-act="accent" data-hex="${hex}" style="--c:${hex}"></button>`).join("")}</div>
       ${saved.length ? `<div class="eyebrow">Meine Farben</div><div class="swatches">${saved.map((c) => `<button class="sw-c" role="radio" aria-checked="${curHex === String(c.hex).toLowerCase()}" aria-label="Eigene Farbe" data-act="accent" data-hex="${esc(c.hex)}" style="--c:${esc(c.hex)}"></button>`).join("")}</div>` : ""}
       <label class="f" style="flex-direction:row;align-items:center;gap:12px">Neue Farbe<input type="color" id="accent-custom" data-change="accentCustom" value="${esc(ui.pendingHex || curHex || "#8fb39b")}" aria-label="Neue Farbe wählen"></label>
       ${ui.pendingHex ? `<button class="btn sm primary" data-act="accentSave" style="align-self:flex-start">Farbe in „Meine Farben“ speichern</button>` : ""}
       ${savedHere ? `<button class="btn sm ghost" data-act="accentDel" style="align-self:flex-start">Diese gespeicherte Farbe entfernen</button>` : ""}
-      ${curHex ? `<button class="btn sm ghost" data-act="accentReset" style="align-self:flex-start">Zurück zum Standard</button>` : ""}</section>`;
-    return `<h2>Mehr</h2>${palette}<div class="more">
+      ${curHex ? `<button class="btn sm ghost" data-act="accentReset" style="align-self:flex-start">Zurück zum Standard</button>` : ""}</details>`;
+    return `<h2>Mehr</h2><div class="eyebrow">Auswertung</div><div class="more">
       <button data-act="view" data-v="historie">${ic("cal")}<span>Historie und Statistik<br><span class="note">Kalender, Wochen und Monate</span></span></button>
-      <button data-act="view" data-v="gewicht">${ic("scale")}<span>Gewicht<br><span class="note">Verlauf, Trend und Ziel</span></span></button>
-      <button data-act="view" data-v="profil">${ic("user")}<span>Profile und Einstellungen<br><span class="note">Kalorienbedarf, Sportwerte, Lebensmittel, Datensicherung</span></span></button></div>`;
+      <button data-act="view" data-v="gewicht">${ic("scale")}<span>Gewicht<br><span class="note">Verlauf, Trend und Ziel</span></span></button></div>
+      <div class="eyebrow">Einstellungen</div><div class="more">
+      <button data-act="view" data-v="profil">${ic("user")}<span>Profile und Einstellungen<br><span class="note">Kalorienbedarf, Sportwerte, Lebensmittel, Datensicherung</span></span></button></div>
+      <div class="eyebrow">Darstellung</div>${palette}`;
   }
 
   function vHistorie() {
@@ -2314,7 +2327,7 @@ Regeln:
       <div class="stats">${tiles.map(([v, t]) => `<div class="stat"><b>${v}</b><span>${t}</span></div>`).join("")}</div>
       <section class="card"><h3>Kalorien pro Tag</h3>${histChart(days)}<div class="note">Balken = gegessen, Linie = Budget (Ziel + Sport). Grau = Tag nicht als vollständig markiert.</div></section>
       ${cal}
-      <div class="note">Ein Tag zählt erst, wenn du ihn unter „Heute“ als vollständig erfasst markierst und alle gegessenen Mahlzeiten einen Kalorienwert haben. Tage ohne Einträge werden weder als Erfolg noch als Misserfolg gewertet.</div>`;
+      <div class="note">Ein Tag zählt erst, wenn du ihn unter „Ausgewählt“ als vollständig erfasst markierst und alle gegessenen Mahlzeiten einen Kalorienwert haben. Tage ohne Einträge werden weder als Erfolg noch als Misserfolg gewertet.</div>`;
   }
 
   function histChart(days) {
@@ -2499,7 +2512,7 @@ Regeln:
 
   function sheetPickSlot() {
     const r = store.S.recipes[ui.sheet.id];
-    return `<div class="note" style="margin-bottom:8px">„${esc(r ? r.title : "")}“ kommt unter „Heute“ auf die Liste. Zu welcher Mahlzeit?</div>
+    return `<div class="note" style="margin-bottom:8px">„${esc(r ? r.title : "")}“ kommt unter „Ausgewählt“ auf die Liste. Zu welcher Mahlzeit?</div>
       <div class="minilist">${X.SLOTS.filter(([k]) => k !== "fruehstueck").map(([k, t]) => `<div><span><b>${esc(t)}</b></span><button class="btn primary" data-act="pickSlot" data-slot="${k}">Auswählen</button></div>`).join("")}</div>`;
   }
 
@@ -2512,7 +2525,7 @@ Regeln:
         <div class="minilist">${rs.map((r) => `<div><span><b>${esc(r.title)}</b><br><span class="note">${kcal(r.nut.perPortion.kcal)} kcal je Portion · ${esc(L.QUALITY_LABEL[r.nut.quality])}</span></span>
           <span class="btns"><button class="btn sm" data-act="amAdd" data-id="${r.id}" data-s="geplant">Planen</button><button class="btn sm primary" data-act="amAdd" data-id="${r.id}" data-s="gegessen">Gegessen</button></span></div>`).join("") || `<div class="note">Keine Rezepte gefunden.</div>`}</div>`
       : `<form data-submit="manualMeal" class="fgrid"><label class="f full">Was?<input id="mm-title" required placeholder="z. B. Brezel"></label>
-        <label class="f">kcal je Portion<input id="mm-kcal" type="number" inputmode="decimal" min="0" placeholder="unbekannt"></label><label class="f">Portionen<input id="mm-p" type="number" inputmode="decimal" min="0.25" step="0.25" value="1"></label>
+        <label class="f">kcal je Portion<input id="mm-kcal" type="number" inputmode="decimal" min="0" placeholder="keine Angabe"></label><label class="f">Portionen<input id="mm-p" type="number" inputmode="decimal" min="0.25" step="0.25" value="1"></label>
         <label class="f">Protein g<input id="mm-protein" type="number" inputmode="decimal" min="0"></label><label class="f">Kohlenhydrate g<input id="mm-carbs" type="number" inputmode="decimal" min="0"></label><label class="f">Fett g<input id="mm-fat" type="number" inputmode="decimal" min="0"></label>
         <label class="f">Status<select id="mm-status"><option value="gegessen">gegessen</option><option value="geplant">geplant</option></select></label>
         <div class="note full">Ohne Kalorienwert wird nichts angerechnet und der Tag gilt als unvollständig.</div><button class="btn primary full">Eintragen</button></form>`}`;
@@ -2721,6 +2734,7 @@ Regeln:
     accent: (t) => { ui.pendingHex = null; LS.set("accent", { hex: t.dataset.hex }); applyAccent(); render(); },
     accentSave: () => { const hex = (ui.pendingHex || "").toLowerCase(); if (!/^#[0-9a-f]{6}$/.test(hex)) return; const l = (LS.get("accentSaved", []) || []).filter((c) => String(c.hex).toLowerCase() !== hex); l.push({ hex }); LS.set("accentSaved", l.slice(-10)); LS.set("accent", { hex }); ui.pendingHex = null; applyAccent(); render(); },
     accentDel: () => { const hex = accentHex(); LS.set("accentSaved", (LS.get("accentSaved", []) || []).filter((c) => String(c.hex).toLowerCase() !== hex)); render(); },
+    palToggle: (t, e) => { if (e && e.preventDefault) e.preventDefault(); ui.palOpen = !ui.palOpen; render(); },
     accentReset: () => { LS.set("accent", null); applyAccent(); render(); },
     shopShare: async () => {
       const ps = store.profiles();
