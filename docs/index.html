@@ -436,11 +436,11 @@ body { background: transparent; min-height: 100dvh; }
 
 .dsprev { width: 100%; max-height: 240px; object-fit: cover; border-radius: 16px; }
 .dsthumb { width: 44px; height: 44px; object-fit: cover; border-radius: 10px; flex: none; }
-.pick { transition: background .18s ease, color .18s ease, border-color .18s ease, transform .12s ease; }
+.pick { transition: background .05s ease, color .05s ease, border-color .05s ease, transform .05s ease; }
 .pick.flash { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, var(--accent-2))); color: var(--accent-ink); border-color: transparent; transform: scale(.985); }
 
 </style>
-<script>window.FR_BUILD="04.11. 18:21";</script>
+<script>window.FR_BUILD="04.11. 18:50";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -3077,7 +3077,7 @@ Regeln:
     cookNav: (t) => { ui.cook.step += Number(t.dataset.d); renderCook(); },
     cookTab: (t) => { ui.cook.tab = t.dataset.v; renderCook(); },
     cookEnd: () => { ui.cook = null; wakeOff(); renderCook(); },
-    pickMeal: async (t) => { if (t.classList && t.dataset.v) { t.classList.add("flash"); await new Promise((res) => setTimeout(res, 280)); } ui.radar = { ...ui.radar, meal: t.dataset.v || null, slot: t.dataset.v || null, target: t.dataset.v ? t.dataset.slot || null : null, stage: "alle" }; LS.set("radar", { stage: "alle" }); ui.lastDecision = null; ui.drawnKey = null; if (t.dataset.v) ensureDrawn(); schedule(); },
+    pickMeal: async (t) => { if (t.classList && t.dataset.v) { t.classList.add("flash"); await new Promise((res) => setTimeout(res, 100)); } ui.radar = { ...ui.radar, meal: t.dataset.v || null, slot: t.dataset.v || null, target: t.dataset.v ? t.dataset.slot || null : null, stage: "alle" }; LS.set("radar", { stage: "alle" }); ui.lastDecision = null; ui.drawnKey = null; if (t.dataset.v) ensureDrawn(); schedule(); },
     askSlot: (rid) => openSheet("pickSlot", { id: rid }),
     pickSlot: (t) => { const rid = ui.sheet.id; closeSheet(); decide(rid, "keep", undefined, t.dataset.slot); },
     stage: (t) => { ui.radar = { ...ui.radar, stage: t.dataset.v }; LS.set("radar", ui.radar); ui.lastDecision = null; ensureDrawn(); schedule(); },
