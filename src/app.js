@@ -332,22 +332,22 @@
     if (ui.later.length) { const ix = (id) => ui.later.indexOf(id); stack = [...stack.filter((r) => ix(r.id) < 0), ...stack.filter((r) => ix(r.id) >= 0).sort((a, b) => ix(a.id) - ix(b.id))]; }
     const total = Object.keys(store.S.recipes).length;
     const nFav = store.radarFavCount(ui.pid, ui.date, f);
-    let out = `<div class="toprow"><button class="btn sm" data-act="resetDeck">${ic("undo", 16)} Zurücksetzen</button>${fav ? `<button class="btn sm" data-act="stage" data-v="alle">‹ Weiter sammeln</button>` : ""}</div>`;
+    let out = `<div class="seg2">${fav ? `<button class="btn" data-act="stage" data-v="alle">${ic("left", 16)} Sammeln</button>` : ""}<button class="btn" data-act="resetDeck">${ic("undo", 16)} Neu starten</button></div>`;
     const right = fav ? "keep" : "fav";
     if (!total) {
       out += `<div class="empty"><b>Noch keine Rezepte in der Bibliothek</b><span>Füge oben über „+ Link“ ein Rezept hinzu oder lege eins an. Danach kannst du hier Gerichte durchwischen.</span></div>`;
     } else if (!stack.length) {
       out += fav
-        ? `<div class="empty"><b>Nichts mehr in der Auswahl</b><span>${nFav ? "" : "Wische Gerichte nach rechts oder hoch, dann erscheinen sie hier. "}Für ${esc(relDay(ui.date).toLowerCase())} ist hier nichts mehr offen${f.slot || f.maxMinutes ? " (mit diesem Filter)" : ""}.</span><button class="btn primary" data-act="resetDeck">Alles neu starten</button><button class="btn" data-act="stage" data-v="alle">Weiter sammeln</button></div>`
+        ? `<div class="empty"><b>Nichts mehr in der Auswahl</b><span>${nFav ? "" : "Wische Gerichte nach rechts oder hoch, dann erscheinen sie hier. "}Für ${esc(relDay(ui.date).toLowerCase())} ist hier nichts mehr offen${f.slot || f.maxMinutes ? " (mit diesem Filter)" : ""}.</span><button class="btn primary" data-act="resetDeck">Alles neu starten</button><button class="btn" data-act="stage" data-v="alle">Sammeln</button></div>`
         : `<div class="empty"><b>Keine offenen Karten</b><span>Alle passenden Rezepte sind durchgesehen${f.slot || f.maxMinutes ? " (mit diesem Filter)" : ""}. ${nFav ? "Weiter mit deiner Auswahl." : ""}</span>
           <button class="btn primary" data-act="resetDeck">Alles neu starten</button><button class="btn" data-act="draw">Weitere Gerichte laden</button>${nFav ? `<button class="btn" data-act="stage" data-v="fav">Weiter zur Auswahl</button>` : ""}</div>`;
     } else {
       out += `<div class="deck">${stack[1] ? tile(stack[1], { next: true, compact: true }) : ""}${tile(stack[0], { swipe: true, compact: true, stage: fav ? "fav" : "alle" })}</div>
         <div class="actions">
           <button class="abtn ghost" data-act="undoDecision" aria-label="Letzte Entscheidung rückgängig" ${ui.lastDecision ? "" : "disabled"}>${ic("undo", 22)}<span>Zurück</span></button>
-          ${fav ? `<button class="abtn skip" data-act="decide" data-a="skip" data-id="${stack[0].id}">${ic("x", 22)}<span>Heute nicht</span></button>
+          ${fav ? `<button class="abtn skip" data-act="decide" data-a="skip" data-id="${stack[0].id}">${ic("x", 22)}<span>Nein</span></button>
           <button class="abtn" data-act="decide" data-a="later" data-id="${stack[0].id}">${ic("next", 22)}<span>Später</span></button>
-          <button class="abtn keep" data-act="decide" data-a="keep" data-id="${stack[0].id}">${ic("check", 22)}<span>Heute kochen</span></button>`
+          <button class="abtn keep" data-act="decide" data-a="keep" data-id="${stack[0].id}">${ic("check", 22)}<span>Kochen</span></button>`
           : `<button class="abtn super" data-act="superlike" data-id="${stack[0].id}" aria-pressed="${!!stack[0].favorite}">${ic("star", 22, true)}<span>Superlike</span></button>
           <button class="abtn keep" data-act="stage" data-v="fav">${ic("next", 22)}<span>Weiter${nFav ? " (" + nFav + ")" : ""}</span></button>`}
         </div><div class="note hintline">${fav ? (stack.length <= nFav ? `Karte ${nFav - stack.length + 1} von ${nFav}` : `noch ${stack.length} Karte${stack.length === 1 ? "" : "n"}`) : (LS.get("hintSeen", false) ? "" : `<b class="hint">← Raus · Auswahl → · ↑ Superlike</b>`)}</div>`;
