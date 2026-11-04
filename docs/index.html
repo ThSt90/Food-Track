@@ -474,7 +474,7 @@ body { background: transparent; min-height: 100dvh; }
 .minilist > div > .stepper span { flex: 1; text-align: center; font-size: 13px; white-space: nowrap; }
 
 </style>
-<script>window.FR_BUILD="04.11. 23:03";</script>
+<script>window.FR_BUILD="04.11. 23:07";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -3210,7 +3210,6 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
         <button class="btn primary full" data-act="dsSave">Als gegessen eintragen</button></div>` : "";
     return `<label class="f full">Was hast du gegessen?<textarea id="ds-text" rows="4" data-input="dsText" placeholder="z. B. 3 Toast, ein Ei, 2 Toast mit Philadelphia und einer mit Nutella">${esc(s.dsText || "")}</textarea></label>
       ${window.FR_PHOTO ? `<label class="btn full">${ic("cam", 18)} ${s.dsPrev ? "Anderes Foto wählen" : "Foto vom Essen hinzufügen"}<input id="ds-photo" type="file" accept="image/*" hidden data-change="dsPhoto"></label>${s.dsPrev ? `<img class="dsprev" src="${esc(s.dsPrev)}" alt="Foto vom Essen">` : ""}` : ""}
-      <div class="note">Tipp: Mit der Mikrofon-Taste der iPhone-Tastatur kannst du sprechen statt tippen. Bei einem Foto hilft ein Satz dazu, zum Beispiel was du davon gegessen hast. Die Werte sind Näherungen, die du vor dem Eintragen prüfst.</div>
       <button class="btn primary full" data-act="dsRun" ${d.busy ? "disabled" : ""}>${d.busy ? "Wird berechnet …" : d.items ? "Neu berechnen" : "Berechnen"}</button>
       ${d.error ? `<div class="notice">${esc(d.error)}</div>` : ""}${res}`;
   }
