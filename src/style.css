@@ -411,3 +411,4 @@ body { background: transparent; min-height: 100dvh; }
 .codeblock pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; font: 12px/1.4 ui-monospace, monospace; user-select: all; }
 .seg2 { display: flex; gap: 8px; } .seg2 .btn { flex: 1; justify-content: center; }
 .stat span, .stat small { display: block; }
+.bal .bigline { display: flex; align-items: baseline; gap: 8px; } .bal .bigline b { font-size: 40px; letter-spacing: -.02em; } .bal .bigline span { font-size: 16px; color: var(--muted); } .bal .minilist { margin-top: 10px; } .bal b.ok { color: var(--accent-text); } .bal b.bad { color: var(--bad); }

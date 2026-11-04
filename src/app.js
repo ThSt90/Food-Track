@@ -192,14 +192,18 @@
   /** Verbrauch (Ruhe + Aktivität, aus Apple Health) gegenüber dem Gegessenen – nur zum Vergleichen, das Tagesbudget bleibt unberührt. */
   function balanceCard(d) {
     const bn = d.burn; if (!bn) return "";
-    const total = (bn.rest || 0) + (bn.active || 0), eaten = d.budget.eaten, diff = Math.round(eaten - total);
+    const total = (bn.rest || 0) + (bn.active || 0), eaten = d.budget.eaten, diff = Math.round(total - eaten), rem = d.budget.remaining;
     const live = d.date === store.today(), at = bn.at ? new Date(bn.at) : null;
     const hhmm = at ? String(at.getHours()).padStart(2, "0") + ":" + String(at.getMinutes()).padStart(2, "0") : "";
     const part = bn.rest == null || bn.active == null;
-    return `<section class="card"><div class="row"><div><h3>Energiebilanz${live ? " bisher" : ""}</h3><div class="sub">Verbrauch laut Apple Health gegenüber gegessen${live && hhmm ? " · Stand " + hhmm : ""}</div></div></div>
-      <div class="stats"><div class="stat"><b>${de(total)}</b><span>verbraucht</span><small class="note">${bn.rest != null ? "Ruhe " + de(bn.rest) : ""}${bn.rest != null && bn.active != null ? " + " : ""}${bn.active != null ? "Aktiv " + de(bn.active) : ""}</small></div>
-        <div class="stat"><b>${de(eaten)}</b><span>gegessen</span>${d.unknown ? `<small class="note">Angaben unvollständig</small>` : ""}</div></div>
-      <div class="notice ${diff <= 0 ? "" : "warn"}"><b>${!d.meals.some((m) => m.status === "gegessen") ? "Noch nichts gegessen erfasst" : (diff <= 0 ? "Defizit " + de(-diff) : "Überschuss " + de(diff)) + " kcal"}</b>${live ? " · der Verbrauch steigt im Lauf des Tages" : ""}${part ? " · nur ein Teil des Verbrauchs vorhanden" : ""}</div></section>`;
+    const parts = [bn.rest != null ? "Ruhe " + de(bn.rest) : "", bn.active != null ? "Aktiv " + de(bn.active) : ""].filter(Boolean).join(" + ");
+    return `<section class="card bal"><h3>${live ? "Heute verbraucht" : "Verbraucht"}</h3>
+      <div class="bigline"><b>${de(total)}</b><span>kcal${live ? " bisher" : ""}</span></div>
+      <div class="note">${parts}${live && hhmm ? " · Stand " + hhmm : ""}${part ? " · nur ein Teil des Verbrauchs vorhanden" : ""}</div>
+      <div class="minilist"><div><span>Gegessen</span><b>${de(eaten)} kcal</b></div>
+        <div><span>${diff >= 0 ? "Defizit" : "Überschuss"}</span><b class="${diff >= 0 ? "ok" : "bad"}">${de(Math.abs(diff))} kcal</b></div>
+        ${rem != null ? `<div><span>Noch verfügbar (Tagesziel)</span><b>${de(Math.max(0, rem))} kcal</b></div>` : ""}</div>
+      ${live ? `<div class="note">Der Verbrauch steigt im Lauf des Tages, das Defizit ändert sich mit.</div>` : ""}</section>`;
   }
 
   function vTag() {
