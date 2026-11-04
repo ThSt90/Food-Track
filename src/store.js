@@ -371,11 +371,18 @@
       if (filter.stage === "fav") {
         // Stufe 2: die in Stufe 1 nach rechts (oder per Superlike) gewählten Gerichte, über die heute noch nicht endgültig entschieden wurde
         return radarEntries(pid, date).filter((e) => e.status === "favorit" && all[e.rid]).sort((a, b) => (a.pos || 0) - (b.pos || 0))
-          .map((e) => ({ ...all[e.rid], why: e.super ? ["Superlike"] : ["Ausgewählt"] })).filter(okF);
+          .map((e) => ({ ...all[e.rid], why: e.super ? ["Superlike"] : ["Ausgewählt"], matchWith: (radarMatches(pid, date)[e.rid] || []).join(", ") })).filter(okF)
+          .sort((a, b) => (b.matchWith ? 1 : 0) - (a.matchWith ? 1 : 0));
       }
       // Stufe 1: alle Rezepte durchwischen; Favoriten aus früheren Tagen kommen hier dreifach so oft vor
       return radarEntries(pid, date).filter((e) => e.status === "vorgeschlagen" && all[e.rid]).sort((a, b) => a.pos - b.pos)
-        .map((e) => ({ ...all[e.rid], why: e.why || [] })).filter(okF);
+        .map((e) => ({ ...all[e.rid], why: e.why || [], matchWith: (radarMatches(pid, date)[e.rid] || []).join(", ") })).filter(okF);
+    }
+    /** Gerichte, die eine andere Person heute in der engeren Auswahl oder schon vorgemerkt hat -> Name. */
+    function radarMatches(pid, date) {
+      const out = {};
+      for (const p of profiles()) if (p.id !== pid) for (const e of radarEntries(p.id, date)) if (e.status === "favorit" || e.status === "vorgemerkt") (out[e.rid] = out[e.rid] || []).push(p.name);
+      return out;
     }
     const radarFavCount = (pid, date, filter = {}) => radarStack(pid, date, { ...filter, stage: "fav" }).length;
 
@@ -431,7 +438,7 @@
         for (const [id, m] of live(dd && dd.meals)) if (id.startsWith("radar-") && m.status === "vorgemerkt") mm[id] = null;
         if (Object.keys(mm).length) await dayPatch(p.id, date, { meals: mm });
       }
-      for (const key of Object.keys(S.shopping)) if (S.shopping[key] && key.startsWith(date + "__")) await shoppingReset(date, key.slice(date.length + 2)); // auch die Einkaufsliste des Tages
+      for (const key of Object.keys(S.shopping)) if (S.shopping[key] && key.startsWith(date + "__") && !key.slice(date.length + 2).startsWith("w__")) await shoppingReset(date, key.slice(date.length + 2)); // auch die Einkaufsliste des Tages
       if (filter.slot) await radarDraw(pid, date, { ...filter, stage: "alle" }, 8);
       return true;
     }
@@ -445,24 +452,29 @@
 
     // ------------------------------------------------------------------ Einkaufsliste
     /** Abgeleitet aus den Gerichten des Tages; abgehakt/vorhanden/geänderte Mengen bleiben gespeichert. */
-    function shopping(date, scope) {
+    /** Montag der Woche, in der `date` liegt. */
+    const mondayOf = (date) => L.addDays(date, -((L.parseISO(date).getDay() + 6) % 7));
+    /** date = "JJJJ-MM-TT" (ein Tag) oder "JJJJ-MM-TT__w" (Montag; Einkauf für den Rest der Woche ab heute). */
+    function shopping(dateKey, scope) {
+      const [date, flag] = String(dateKey).split("__");
+      const dates = flag === "w" ? [0, 1, 2, 3, 4, 5, 6].map((i) => L.addDays(date, i)).filter((d) => d >= today()) : [date];
       const pids = scope === "alle" ? profiles().map((p) => p.id) : [scope];
       const lines = [];
       let mealCount = 0; const mealList = [];
-      for (const pid of pids) for (const m of meals(pid, date)) {
+      for (const day_ of dates) for (const pid of pids) for (const m of meals(pid, day_)) {
         const r = m.recipeId ? S.recipes[m.recipeId] : null;
         if (!r) continue;
         mealCount++;
-        mealList.push({ pid, id: m.id, title: r.title, servings: m.servings > 0 ? m.servings : 4, recipeServings: r.servings || 1, slot: m.slot, who: (profiles().find((p) => p.id === pid) || {}).name || "" });
+        mealList.push({ pid, id: m.id, date: day_, title: r.title, servings: m.servings > 0 ? m.servings : 4, recipeServings: r.servings || 1, slot: m.slot, who: (profiles().find((p) => p.id === pid) || {}).name || "" });
         const factor = (m.servings > 0 ? m.servings : 4) / (r.servings || 1);
         for (const i of r.ingredients || []) lines.push({ name: i.name, amount: i.amount, unit: i.unit, factor, source: r.title });
       }
-      const doc = S.shopping[`${date}__${scope}`] || {};
+      const doc = S.shopping[`${dateKey}__${scope}`] || {};
       const state = doc.state || {};
       const items = L.shoppingAggregate(lines).map((a) => { const s = state[a.key] || {}; return { ...a, auto: true, checked: !!s.checked, have: !!s.have, override: s.override ?? null, shown: s.override ?? a.amount }; });
       for (const [id, x] of live(doc.manual)) items.push({ key: "m:" + id, id, name: x.name, amount: x.amount, unit: x.unit, shown: x.amount, auto: false, checked: !!x.checked, have: false, sources: "eigener Posten" });
       items.sort((a, b) => (a.checked || a.have) - (b.checked || b.have) || L.norm(a.name).localeCompare(L.norm(b.name)));
-      return { date, scope, items, mealCount, meals: mealList };
+      return { date: dateKey, scope, items, mealCount, meals: mealList, week: flag === "w" };
     }
     const shopPath = (date, scope) => `shopping/${date}__${scope}`;
     const shoppingSet = (date, scope, key, change) => (key.startsWith("m:")
@@ -554,7 +566,7 @@
 
     return {
       linkImports, addLinkImport, restoreRecipe, setImportRecipe, setImportStatus, deleteImport,
-      S, subscribe, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
+      S, subscribe, mondayOf, radarMatches, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
       profiles, profile, createDefaultProfiles, saveProfile, energyFor, currentWeight,
       dayDoc, daySettings, setDayFlag, day, meals, addMeal, setMealStatus, updateMeal, resnapshotMeal, deleteMeal,
       foodList, foodMap, recipes, recipe, saveRecipe, deleteRecipe, findDuplicates, toggleFavorite, favSet,

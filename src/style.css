@@ -391,3 +391,9 @@ html.fit-lock, html.fit-lock body { overflow: hidden; height: 100%; overscroll-b
 .abtn.super[aria-pressed="true"] { background: #f2b630; color: #2b2724; border-color: transparent; }
 
 button, a, [data-act], summary { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+.chip.match { background: #e0587c; color: #fff; }
+.wday.today { border-color: var(--accent); }
+.wday h3 { margin: 0; display: flex; gap: 8px; align-items: center; }
+
+.hintline { text-align: center; min-height: 20px; line-height: 20px; flex: none; }

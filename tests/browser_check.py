@@ -307,6 +307,10 @@ def main() -> int:
         # Hellmodus einmal ansehen
         page.emulate_media(color_scheme="light"); nav("Neu"); page.wait_for_timeout(400)
         page.screenshot(path=str(OUT / "10-radar-hell.png"))
+        nav("Mehr"); page.click("text=Wochenrückblick"); page.wait_for_timeout(300)
+        check("Wochenrückblick öffnet", "Wochenrückblick" in body())
+        page.click("[data-act=rbShift][data-n='-7']"); page.wait_for_timeout(200)
+        check("Wochenrückblick: Vorwoche blättert", "Wochenrückblick" in body())
         browser.close()
     httpd.shutdown()
     bad = [e for e in errors if "favicon" not in e]

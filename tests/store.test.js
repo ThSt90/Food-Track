@@ -348,3 +348,31 @@ test("Link-Import: vormerken, Duplikat, Status, ungültiger Link", async () => {
   await st.deleteImport(a);
   assert.equal(st.linkImports().length, 0);
 });
+
+test("Wocheneinkauf: Gerichte der restlichen Woche werden zusammengezählt, vergangene Tage nicht", async () => {
+  const { st, rid } = await ready();
+  const mon = st.mondayOf(DAY); // 2026-10-12 (Sa 17.10. ist heute)
+  assert.equal(mon, "2026-10-12");
+  await st.addMeal("p1", "2026-10-13", "abend", { recipeId: rid, servings: 2 }); // vergangen
+  await st.addMeal("p1", "2026-10-18", "abend", { recipeId: rid, servings: 2 });
+  await st.addMeal("p2", "2026-10-18", "mittag", { recipeId: rid, servings: 4 });
+  const w = st.shopping(mon + "__w", "alle");
+  assert.equal(w.mealCount, 2); assert.ok(w.week);
+  const reis = w.items.find((i) => i.name === "Reis");
+  assert.equal(reis.amount, 450); // 150 g (2 Pers.) + 300 g (4 Pers.)
+  await st.shoppingSet(mon + "__w", "alle", reis.key, { checked: true });
+  assert.ok(st.shopping(mon + "__w", "alle").items.find((i) => i.name === "Reis").checked);
+  assert.ok(!st.shopping(DAY, "alle").items.some((i) => i.checked)); // Tagesliste bleibt unberührt
+});
+
+test("Match: Gerichte, die die andere Person heute auswählt, stehen vorn und tragen ihren Namen", async () => {
+  const { st } = await ready();
+  await st.radarDraw("p1", DAY, {}, 5); await st.radarDraw("p2", DAY, {}, 20);
+  const [a, b] = st.radarStack("p1", DAY);
+  await st.radarDecide("p1", DAY, a.id, "fav"); await st.radarDecide("p1", DAY, b.id, "fav");
+  assert.deepEqual(st.radarStack("p1", DAY, { stage: "fav" }).map((r) => r.matchWith), ["", ""]);
+  if (!st.radarStack("p2", DAY).some((r) => r.id === b.id)) await st.radarDecide("p2", DAY, b.id, "undo");
+  await st.radarDecide("p2", DAY, b.id, "fav");
+  const s2 = st.radarStack("p1", DAY, { stage: "fav" });
+  assert.equal(s2[0].id, b.id); assert.ok(s2[0].matchWith.length > 0); assert.equal(s2[1].matchWith, "");
+});
