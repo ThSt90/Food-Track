@@ -1298,7 +1298,7 @@ body { background: transparent; min-height: 100dvh; }
   const slotForCategory = (c, hour = 18) => (normCat(c) === "main" ? (hour < 15 ? "mittag" : "abend") : normCat(c));
   const OPEN = ["vorgemerkt", "geplant", "gekocht"];
   const SPORT_KINDS = [["kraft", "Krafttraining"], ["laufen", "Laufen"], ["rad", "Radfahren"], ["schwimmen", "Schwimmen"], ["golf", "Golf"], ["sonstiges", "Sonstiges"]];
-  const COLLECTIONS = ["profiles", "foods", "recipes", "favorites", "days", "weights", "shopping", "settings", "imports", "health"];
+  const COLLECTIONS = ["profiles", "foods", "recipes", "favorites", "days", "weights", "shopping", "settings", "imports", "health", "plan"];
   const DEFAULT_PROFILES = {
     p1: { name: "Profil 1", sex: "m", ageYears: 37, birthDate: null, heightCm: null, pal: 1.5, goalMode: "halten", deficitKcal: 500, goalKcalManual: null, targetWeightKg: null, sportCreditPct: 100, dislikes: "", likes: "" },
     p2: { name: "Profil 2", sex: "w", ageYears: 35, birthDate: null, heightCm: null, pal: 1.5, goalMode: "halten", deficitKcal: 500, goalKcalManual: null, targetWeightKg: null, sportCreditPct: 100, dislikes: "", likes: "" },
@@ -1358,7 +1358,8 @@ body { background: transparent; min-height: 100dvh; }
     const energyFor = (pid, date = today()) => (profile(pid) ? L.energy(profile(pid), currentWeight(pid, date), date) : null);
 
     async function createDefaultProfiles() {
-      for (const [id, p] of Object.entries(DEFAULT_PROFILES)) if (!S.profiles[id]) await queue("profiles/" + id, (ref) => ref.set(clone(p)));
+      const mine = typeof window !== "undefined" && window.FR_PROFILE;
+      for (const [id, p] of Object.entries(DEFAULT_PROFILES)) if (!S.profiles[id] && (!mine || mine === id)) await queue("profiles/" + id, (ref) => ref.set(clone(p)));
     }
 
     async function saveProfile(pid, fields, weightKg) {
@@ -1378,7 +1379,24 @@ body { background: transparent; min-height: 100dvh; }
         sportDone: false, complete: false, meals: {}, sport: {}, radar: {} };
     }
     /** Tagesziel und Sportanrechnung werden beim ersten Eintrag des Tages eingefroren. */
-    const dayPatch = (pid, date, change) => patch("days/" + dayKey(pid, date), dayBase(pid, date), change);
+    /** Gemeinsamer Kochplan: je Tag, welche Rezepte wer kocht/isst (ohne Verzehrdaten). Einkauf und Partneransicht lesen nur hieraus. */
+    async function syncPlan(pid, date) {
+      const dd = dayDoc(pid, date), cur = {};
+      for (const [id, m] of live(dd && dd.meals)) if (m.recipeId) cur[id] = { pid, who: (profile(pid) || {}).name || "", slot: m.slot, recipeId: m.recipeId, title: m.title || "", servings: m.servings > 0 ? m.servings : 4, status: m.status };
+      const old = ((S.plan && S.plan[date]) || {}).meals || {}, change = {};
+      for (const id of Object.keys(cur)) if (JSON.stringify(old[id]) !== JSON.stringify(cur[id])) change[id] = cur[id];
+      for (const [id, e] of live(old)) if (e.pid === pid && !cur[id]) change[id] = null;
+      if (Object.keys(change).length) await patch("plan/" + date, { meals: {} }, { meals: change });
+    }
+    const dayPatch = async (pid, date, change) => { const r = await patch("days/" + dayKey(pid, date), dayBase(pid, date), change); if (change && change.meals) await syncPlan(pid, date); return r; };
+    let planBackfilled = false;
+    /** Einmal pro Sitzung: eigene Tage ab heute in den gemeinsamen Plan übernehmen (für Gerichte, die vor der Trennung geplant wurden). */
+    async function backfillPlan(pid) {
+      if (planBackfilled) return; planBackfilled = true; const t0 = today();
+      for (const d of Object.values(S.days)) if (d && d.pid === pid && d.date >= t0) await syncPlan(pid, d.date);
+    }
+    /** Gerichte der anderen Person an diesem Tag (aus dem gemeinsamen Plan). */
+    const partnerPlan = (pid, date) => live(((S.plan && S.plan[date]) || {}).meals).filter(([, m]) => m.pid !== pid).map(([id, m]) => ({ id, ...m })).sort((a, b) => String(a.slot).localeCompare(String(b.slot)));
 
     /** Profiländerungen gelten ab heute; vergangene Tage behalten ihre eingefrorenen Werte. */
     async function refreshDaySnapshots(pid) {
@@ -1649,7 +1667,7 @@ body { background: transparent; min-height: 100dvh; }
     /** Gerichte, die eine andere Person heute in der engeren Auswahl oder schon vorgemerkt hat -> Name. */
     function radarMatches(pid, date) {
       const out = {};
-      for (const p of profiles()) if (p.id !== pid) for (const e of radarEntries(p.id, date)) if (e.status === "favorit" || e.status === "vorgemerkt") (out[e.rid] = out[e.rid] || []).push(p.name);
+      for (const m of partnerPlan(pid, date)) if (m.status === "vorgemerkt") (out[m.recipeId] = out[m.recipeId] || []).push(m.who);
       return out;
     }
     const radarFavCount = (pid, date, filter = {}) => radarStack(pid, date, { ...filter, stage: "fav" }).length;
@@ -1700,7 +1718,7 @@ body { background: transparent; min-height: 100dvh; }
       if (Object.keys(radar).length) change.radar = radar;
       if (Object.keys(change).length) await dayPatch(pid, date, change);
       // vorgemerkte Radar-Gerichte aller Profile von heute entfernen, damit die gemeinsame Einkaufsliste wirklich leer ist
-      for (const p of profiles()) {
+      for (const p of profiles().filter((x) => x.id === pid)) {
         const mm = {};
         const dd = dayDoc(p.id, date);
         for (const [id, m] of live(dd && dd.meals)) if (id.startsWith("radar-") && m.status === "vorgemerkt") mm[id] = null;
@@ -1726,14 +1744,14 @@ body { background: transparent; min-height: 100dvh; }
     function shopping(dateKey, scope) {
       const [date, flag] = String(dateKey).split("__");
       const dates = flag === "w" ? [0, 1, 2, 3, 4, 5, 6].map((i) => L.addDays(date, i)).filter((d) => d >= today()) : [date];
-      const pids = scope === "alle" ? profiles().map((p) => p.id) : [scope];
       const lines = [];
       let mealCount = 0; const mealList = [];
-      for (const day_ of dates) for (const pid of pids) for (const m of meals(pid, day_)) {
-        const r = m.recipeId ? S.recipes[m.recipeId] : null;
+      for (const day_ of dates) for (const [mid, m] of live(((S.plan && S.plan[day_]) || {}).meals)) {
+        if (scope !== "alle" && m.pid !== scope) continue;
+        const pid = m.pid, r = m.recipeId ? S.recipes[m.recipeId] : null;
         if (!r) continue;
         mealCount++;
-        mealList.push({ pid, id: m.id, date: day_, title: r.title, servings: m.servings > 0 ? m.servings : 4, recipeServings: r.servings || 1, slot: m.slot, who: (profiles().find((p) => p.id === pid) || {}).name || "" });
+        mealList.push({ pid, id: mid, date: day_, title: r.title, servings: m.servings > 0 ? m.servings : 4, recipeServings: r.servings || 1, slot: m.slot, who: m.who || "" });
         const factor = (m.servings > 0 ? m.servings : 4) / (r.servings || 1);
         for (const i of r.ingredients || []) lines.push({ name: i.name, amount: i.amount, unit: i.unit, factor, source: r.title });
       }
@@ -1864,7 +1882,7 @@ body { background: transparent; min-height: 100dvh; }
 
     return {
       linkImports, addLinkImport, restoreRecipe, setImportRecipe, setImportStatus, deleteImport,
-      S, subscribe, mondayOf, radarMatches, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
+      S, subscribe, mondayOf, radarMatches, partnerPlan, backfillPlan, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
       profiles, profile, createDefaultProfiles, saveProfile, energyFor, currentWeight,
       dayDoc, daySettings, setDayFlag, day, meals, addMeal, setMealStatus, updateMeal, resnapshotMeal, deleteMeal,
       foodList, foodMap, recipes, recipe, saveRecipe, deleteRecipe, findDuplicates, toggleFavorite, favSet,
@@ -2118,7 +2136,9 @@ body { background: transparent; min-height: 100dvh; }
         ${s.meals.length ? s.meals.map(mealRow).join("") : `<div class="note">${key === "abend" ? "Noch nichts geplant. Unter „Entdecken“ erst Favoriten sammeln, dann daraus fürs Kochen wählen – oder einen Eintrag anlegen." : "Kein Eintrag."}${key === "abend" ? `<div><button class="btn sm primary" data-act="view" data-v="radar" style="margin-top:8px">Zu „Neu“ wechseln</button></div>` : ""}</div>`}</section>`;
     }
 
-    return kpiCard(d, e) + out + extra;
+    const pp = store.partnerPlan(pid, date).filter((m) => m.recipeId);
+    const partner = pp.length ? `<section class="card" aria-label="Auch geplant"><h3>Auch geplant</h3><div class="minilist">${pp.map((m) => `<div><span><b>${esc(m.title)}</b><br><span class="note">${esc(m.who)} · ${esc(SLOT_LABEL[m.slot] || "")} · für ${deA(m.servings)} Pers.</span></span></div>`).join("")}</div></section>` : "";
+    return kpiCard(d, e) + out + partner + extra;
   }
 
   function mealRow(m) {
@@ -2485,7 +2505,7 @@ Regeln:
   function vEinkauf() {
     const ps = store.profiles();
     const s = store.shopping(shopDate(), ui.scope === "alle" || ps.some((p) => p.id === ui.scope) ? ui.scope : "alle");
-    const scopes = [...ps.map((p) => [p.id, p.name]), ["alle", "Beide"]];
+    const scopes = ps.length > 1 ? [...ps.map((p) => [p.id, p.name]), ["alle", "Beide"]] : [];
     const open = s.items.filter((i) => !i.checked && !i.have), done = s.items.filter((i) => i.checked || i.have);
     const showDone = !!ui.showDone;
     const row = (i) => `<label class="${i.checked || i.have ? "done" : ""}"><input type="checkbox" data-change="shopCheck" data-key="${esc(i.key)}" ${i.checked ? "checked" : ""} aria-label="${esc(i.name)} gekauft">
@@ -2494,8 +2514,8 @@ Regeln:
         ${i.auto ? "" : `<button class="btn sm ghost" data-act="shopDel" data-id="${esc(i.id)}" aria-label="Entfernen">${ic("trash", 15)}</button>`}</span></label>`;
     return `<div class="toprow"><span class="note">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</span><button class="btn sm" data-act="shopResetAll">${ic("undo", 16)} Alles zurücksetzen</button></div><div class="filters">${[["tag", "Heute"], ["woche", "Diese Woche"]].map(([k, t]) => `<button class="chip line" data-act="span" data-v="${k}" aria-pressed="${(ui.shopSpan === "woche") === (k === "woche")}">${t}</button>`).join("")}</div><div class="filters">${scopes.map(([k, t]) => `<button class="chip line" data-act="scope" data-v="${k}" aria-pressed="${s.scope === k}">${esc(t)}</button>`).join("")}</div>
       <section class="card"><div class="row"><div><h2>Einkaufsliste</h2><div class="sub">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</div></div>${ring(String(done.length), s.items.length ? (done.length / s.items.length) * 100 : 0, "hi", "erledigt")}</div>
-      ${s.meals.length ? `<div class="minilist">${s.meals.map((m) => `<div><span><b>${esc(m.title)}</b>${ps.length > 1 && s.scope === "alle" ? ` <span class="note">(${esc(m.who)})</span>` : ""}<br><span class="note">${s.week ? esc(fmtDate(m.date)) + " · " : ""}${esc(SLOT_LABEL[m.slot] || "")} · Rezept ist für ${deA(m.recipeServings)}</span></span>
-        <span class="chip line" style="gap:2px;padding:2px 4px"><button class="link" style="padding:0 10px" data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button>für ${deA(m.servings)} Pers.<button class="link" style="padding:0 10px" data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></span></div>`).join("")}</div>` : ""}
+      ${s.meals.length ? `<div class="minilist">${s.meals.map((m) => `<div><span><b>${esc(m.title)}</b>${m.pid !== ui.pid && m.who ? ` <span class="note">(${esc(m.who)})</span>` : ""}<br><span class="note">${s.week ? esc(fmtDate(m.date)) + " · " : ""}${esc(SLOT_LABEL[m.slot] || "")} · Rezept ist für ${deA(m.recipeServings)}</span></span>
+        ${m.pid === ui.pid ? `<span class="chip line" style="gap:2px;padding:2px 4px"><button class="link" style="padding:0 10px" data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button>für ${deA(m.servings)} Pers.<button class="link" style="padding:0 10px" data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></span>` : `<span class="note">für ${deA(m.servings)} Pers.</span>`}</div>`).join("")}</div>` : ""}
       ${s.items.length ? `<div class="shop">${open.map(row).join("")}</div>${!open.length && done.length ? `<div class="note">Alles abgehakt.</div>` : ""}${done.length ? `<button class="link acc" data-act="toggleDone">${showDone ? "Erledigte ausblenden" : `${done.length} erledigt/vorhanden ausgeblendet – anzeigen`}</button>${showDone ? `<div class="shop">${done.map(row).join("")}</div>` : ""}` : ""}`
         : `<div class="empty"><b>Noch nichts geplant</b><span>Wähle unter „Neu“ Gerichte für heute oder plane sie unter „Ausgewählt“ – die Zutaten erscheinen hier automatisch und passen sich an Portionen an.</span><button class="btn primary" data-act="view" data-v="radar">Gerichte in „Neu“ wählen</button></div>`}
             ${open.length ? `<button class="btn" data-act="shopShare">Offene Posten teilen / kopieren (z. B. für Bring!)</button>` : ""}
@@ -3297,6 +3317,7 @@ Regeln:
         ui.status = Object.keys(S.profiles).length ? "ok" : "leer";
         if (ui.status === "ok" && ui.view === "radar") ensureDrawn();
       } else if (ui.status === "leer" && Object.keys(S.profiles).length) ui.status = "ok";
+      if (ui.status === "ok" && S.ready.days && S.ready.plan) for (const pr of visibleProfiles()) store.backfillPlan(pr.id).catch((e) => console.error(e));
       if (ui.status === "ok" && S.ready.health && S.ready.weights && S.ready.days) for (const pr of visibleProfiles()) if (store.hkOpen(pr.id).length) store.importHealth(pr.id).then((n) => n && toast(n + " Wert" + (n === 1 ? "" : "e") + " aus Apple Health übernommen")).catch((e) => console.error(e));
       schedule();
     });
