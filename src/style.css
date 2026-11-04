@@ -410,3 +410,4 @@ body { background: transparent; min-height: 100dvh; }
 .codeblock .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .codeblock pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; font: 12px/1.4 ui-monospace, monospace; user-select: all; }
 .seg2 { display: flex; gap: 8px; } .seg2 .btn { flex: 1; justify-content: center; }
+.stat span, .stat small { display: block; }

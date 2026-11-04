@@ -199,7 +199,7 @@
     return `<section class="card"><div class="row"><div><h3>Energiebilanz${live ? " bisher" : ""}</h3><div class="sub">Verbrauch laut Apple Health gegenüber gegessen${live && hhmm ? " · Stand " + hhmm : ""}</div></div></div>
       <div class="stats"><div class="stat"><b>${de(total)}</b><span>verbraucht</span><small class="note">${bn.rest != null ? "Ruhe " + de(bn.rest) : ""}${bn.rest != null && bn.active != null ? " + " : ""}${bn.active != null ? "Aktiv " + de(bn.active) : ""}</small></div>
         <div class="stat"><b>${de(eaten)}</b><span>gegessen</span>${d.unknown ? `<small class="note">Angaben unvollständig</small>` : ""}</div></div>
-      <div class="notice ${diff <= 0 ? "" : "warn"}"><b>${diff <= 0 ? "Defizit " + de(-diff) : "Überschuss " + de(diff)} kcal</b>${live ? " · der Verbrauch steigt im Lauf des Tages" : ""}${part ? " · nur ein Teil des Verbrauchs vorhanden" : ""}</div></section>`;
+      <div class="notice ${diff <= 0 ? "" : "warn"}"><b>${!d.meals.some((m) => m.status === "gegessen") ? "Noch nichts gegessen erfasst" : (diff <= 0 ? "Defizit " + de(-diff) : "Überschuss " + de(diff)) + " kcal"}</b>${live ? " · der Verbrauch steigt im Lauf des Tages" : ""}${part ? " · nur ein Teil des Verbrauchs vorhanden" : ""}</div></section>`;
   }
 
   function vTag() {
