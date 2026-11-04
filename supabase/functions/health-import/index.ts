@@ -20,6 +20,8 @@ Deno.serve(async (req) => {
   const entries: Record<string, unknown> = {}; const skipped: string[] = [];
   const kg = num(b.weightKg);
   if (b.weightKg != null && b.weightKg !== "") { if (kg >= 20 && kg <= 300) entries["w" + date] = { type: "weight", date, kg }; else skipped.push("Gewicht ungültig"); }
+  const act = num(b.activeKcal);
+  if (b.activeKcal != null && b.activeKcal !== "") { if (act > 0 && act < 10000) entries["a" + date.replace(/-/g, "")] = { type: "active", date, kcal: Math.round(act) }; else skipped.push("Aktive kcal ungültig"); } // gleicher Tag überschreibt
   for (const w of Array.isArray(b.workouts) ? b.workouts : []) {
     const kcal = num(w.kcal), d = isDate(w.date) ? w.date : date;
     if (!(kcal > 0)) { skipped.push("Workout ohne kcal: " + String(w.name ?? "")); continue; } // nichts schätzen

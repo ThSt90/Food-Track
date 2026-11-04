@@ -682,7 +682,7 @@ Regeln:
   function vHealth() {
     const pid = ui.pid;
     const code = (label, text) => `<div class="codeblock"><div class="row"><b>${label}</b><button class="btn sm" data-act="copyText" data-text="${esc(text)}">Kopieren</button></div><pre>${esc(text)}</pre></div>`;
-    const ex = JSON.stringify({ profile: pid, weightKg: 80.4, workouts: [{ name: "Laufen", kcal: 350, minutes: 30 }] }, null, 2);
+    const ex = JSON.stringify({ profile: pid, activeKcal: 480 }, null, 2);
     const open = store.hkOpen(pid).length;
     return `<div class="toprow"><button class="btn sm" data-act="view" data-v="mehr">${ic("left", 16)} Mehr</button></div>
       <section class="card"><h2>Apple Health</h2>
@@ -692,7 +692,7 @@ Regeln:
       <section class="card"><h3>2. Kurzbefehl bauen</h3>
         <div class="note">Kurzbefehle → Automation → Persönlich: „Tageszeit“ (z. B. 21:00) oder „Workout beenden“. Aktionen: „Health-Werte suchen“ (Gewicht bzw. Workouts), danach „Inhalte von URL abrufen“ mit diesen Angaben:</div>
         ${code("URL (Methode POST)", HEALTH_URL())}${code("Header", "x-health-key: <dein Geheimwort>")}${code("Anfragetext (JSON)", ex)}
-        <div class="note">Werte (80.4, 350, 30) durch die Health-Variablen ersetzen. Datum ist optional ("date": "JJJJ-MM-TT"), sonst gilt heute.</div></section>`;
+        <div class="note">activeKcal ist die aktive Energie von heute (nicht der Gesamtverbrauch, den Ruhe- und Alltagsverbrauch rechnet Foody schon über Grundumsatz und PAL ein). Optional geht auch weightKg (Gewicht) und workouts. Der Wert wird bei jedem Lauf für heute überschrieben. Datum ist optional ("date": "JJJJ-MM-TT"), sonst gilt heute.</div></section>`;
   }
 
   function vRueckblick() {

@@ -384,13 +384,14 @@ test("Apple Health: Gewicht und Workout mit kcal werden übernommen, Unbrauchbar
     s1: { type: "workout", date: DAY, name: "Laufen", kcal: 350, minutes: 30 },
     s2: { type: "workout", date: DAY, name: "Yoga", kcal: 0, minutes: 30 },   // ohne Verbrauchswert: nicht anrechnen
     w2: { type: "weight", date: DAY, kg: 5 },                                   // unmöglich
+    a1: { type: "active", date: DAY, kcal: 480 },
   } });
   await new Promise((r) => setTimeout(r, 20));
   const n = await st.importHealth("p1");
-  assert.equal(n, 2);
+  assert.equal(n, 3);
   assert.equal(st.weights("p1").entries.find((e) => e.date === DAY).kg, 79.6);
   const acts = st.activities("p1", DAY);
-  assert.equal(acts.length, 1); assert.equal(acts[0].kcal, 350); assert.equal(acts[0].kind, "laufen");
+  assert.equal(acts.length, 2); assert.equal(acts.find((a) => a.kind === "laufen").kcal, 350); assert.equal(acts.find((a) => a.id === "hkactive20261017").kcal, 480);
   assert.equal(st.hkOpen("p1").length, 0);
   assert.equal(await st.importHealth("p1"), 0);
 });

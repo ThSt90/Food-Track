@@ -542,6 +542,9 @@
         for (const [key, e] of hkOpen(pid)) {
           const okDate = /^\d{4}-\d{2}-\d{2}$/.test(e.date || "");
           if (okDate && e.type === "weight" && Number(e.kg) >= 20 && Number(e.kg) <= 300) { await upsertWeight(pid, e.date, Math.round(Number(e.kg) * 10) / 10, "Apple Health"); n++; }
+          else if (okDate && e.type === "active" && Number(e.kcal) > 0 && Number(e.kcal) < 10000) { // aktive Energie des Tages: eine Einheit je Tag, wird bei jedem Lauf überschrieben
+            await addActivity(pid, e.date, { id: "hkactive" + e.date.replace(/-/g, ""), kind: "sonstiges", minutes: 0, kcal: Number(e.kcal) }); n++;
+          }
           else if (okDate && e.type === "workout" && Number(e.kcal) > 0) {
             const kind = (HK_KIND.find(([re]) => re.test(e.name || "")) || [null, "sonstiges"])[1];
             await addActivity(pid, e.date, { id: "hk" + key, kind, minutes: Math.max(0, Number(e.minutes) || 0), kcal: Number(e.kcal) }); n++;
