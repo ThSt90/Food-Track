@@ -432,6 +432,7 @@ body { background: transparent; min-height: 100dvh; }
 .pick:active { transform: scale(.985); }
 
 </style>
+<script>window.FR_BUILD="04.11. 17:20";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2580,6 +2581,7 @@ Regeln:
       <section class="card"><h2>Apple Health</h2>
         <div class="sub">Der iPhone-Kurzbefehl schickt Gewicht und Workouts an Foody. Die App übernimmt sie beim Öffnen${open ? ` (jetzt ${open} wartend)` : ""}.</div>
         <div class="note">Übernommen wird nur, was einen echten Wert hat: Gewicht zwischen 20 und 300 kg, Workouts nur mit Kalorienwert. Foody schätzt nichts.</div></section>
+      <div class="note" style="text-align:center">Version vom ${esc(window.FR_BUILD || "–")}</div>
       ${(() => {
         const end = today(), { days } = store.historyDays(pid, L.addDays(end, -6), end);
         const rows = days.filter((d) => d.burn && (d.burn.rest != null || d.burn.active != null)).reverse();
