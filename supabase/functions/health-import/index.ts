@@ -7,6 +7,8 @@ const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: 
 const same = (a: string, b: string) => { if (a.length !== b.length || !b) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; };
 const berlinToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date());
 const num = (v: unknown) => Number(String(v ?? "").replace(",", "."));
+// Kurzbefehle liefern Zahlen oft als Text ("1.234,5 kcal"): Einheit weg, deutsches Zahlenformat lesen
+const numK = (v: unknown) => { let t = String(v ?? "").replace(/[^0-9.,]/g, ""); if (t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, ""); return Number(t); };
 const isDate = (s: unknown) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const clean = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "").slice(0, 40);
 
@@ -20,8 +22,8 @@ Deno.serve(async (req) => {
   const entries: Record<string, unknown> = {}; const skipped: string[] = [];
   const kg = num(b.weightKg);
   if (b.weightKg != null && b.weightKg !== "") { if (kg >= 20 && kg <= 300) entries["w" + date] = { type: "weight", date, kg }; else skipped.push("Gewicht ungültig"); }
-  const act = num(b.activeKcal);
-  if (b.activeKcal != null && b.activeKcal !== "") { if (act > 0 && act < 10000) entries["a" + date.replace(/-/g, "")] = { type: "active", date, kcal: Math.round(act) }; else skipped.push("Aktive kcal ungültig"); } // gleicher Tag überschreibt
+  const act = numK(b.activeKcal);
+  if (b.activeKcal != null && b.activeKcal !== "") { if (act > 0 && act < 10000) entries["a" + date.replace(/-/g, "")] = { type: "active", date, kcal: Math.round(act) }; else skipped.push("Aktive kcal ungültig: " + JSON.stringify(b.activeKcal)); } // gleicher Tag überschreibt
   for (const w of Array.isArray(b.workouts) ? b.workouts : []) {
     const kcal = num(w.kcal), d = isDate(w.date) ? w.date : date;
     if (!(kcal > 0)) { skipped.push("Workout ohne kcal: " + String(w.name ?? "")); continue; } // nichts schätzen
