@@ -423,7 +423,6 @@ body { background: transparent; min-height: 100dvh; }
 .chooser { display: grid; gap: 14px; padding-top: 8px; }
 .chooser h2 { margin: 0 0 6px; font-size: 28px; }
 .pick { display: flex; align-items: center; gap: 16px; width: 100%; min-height: 104px; padding: 18px 20px; border-radius: 24px; border: 1px solid var(--line, rgba(0,0,0,.08)); background: var(--surface); color: var(--text); text-align: left; box-shadow: 0 8px 24px rgba(0,0,0,.06); cursor: pointer; }
-.pick.main { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, var(--accent-2))); color: var(--accent-ink); border-color: transparent; }
 .pick .pe { font-size: 40px; line-height: 1; }
 .pick .pt { display: grid; gap: 4px; flex: 1; min-width: 0; }
 .pick .pt b { font-size: 21px; }
@@ -437,9 +436,11 @@ body { background: transparent; min-height: 100dvh; }
 
 .dsprev { width: 100%; max-height: 240px; object-fit: cover; border-radius: 16px; }
 .dsthumb { width: 44px; height: 44px; object-fit: cover; border-radius: 10px; flex: none; }
+.pick { transition: background .18s ease, color .18s ease, border-color .18s ease, transform .12s ease; }
+.pick.flash { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, var(--accent-2))); color: var(--accent-ink); border-color: transparent; transform: scale(.985); }
 
 </style>
-<script>window.FR_BUILD="04.11. 18:13";</script>
+<script>window.FR_BUILD="04.11. 18:21";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2254,9 +2255,8 @@ body { background: transparent; min-height: 100dvh; }
     const f = ui.radar, fav = f.stage === "fav";
     if (!f.meal) {
       const rs = store.recipes(ui.pid), nM = rs.filter((r) => r.category !== "fruehstueck").length, nF = rs.filter((r) => r.category === "fruehstueck").length;
-      const card = (v, emoji, title, n, cls) => `<button class="pick ${cls}" data-act="pickMeal" data-v="${v}"><span class="pe" aria-hidden="true">${emoji}</span><span class="pt"><b>${title}</b><small>${n} ${n === 1 ? "Rezept" : "Rezepte"}</small></span><span class="pa" aria-hidden="true">${ic("right", 20)}</span></button>`;
-      return `<div class="chooser"><h2>Was suchst du?</h2>
-        ${card("main", "🍽️", "Mittag / Abendessen", nM, "main")}${card("fruehstueck", "🥐", "Frühstück", nF, "")}</div>`;
+      const card = (v, slot, emoji, title, n) => `<button class="pick" data-act="pickMeal" data-v="${v}" data-slot="${slot}"><span class="pe" aria-hidden="true">${emoji}</span><span class="pt"><b>${title}</b><small>${n} ${n === 1 ? "Rezept" : "Rezepte"}</small></span><span class="pa" aria-hidden="true">${ic("right", 20)}</span></button>`;
+      return `<div class="chooser">${card("fruehstueck", "fruehstueck", "🥐", "Frühstück", nF)}${card("main", "mittag", "🍝", "Mittagessen", nM)}${card("main", "abend", "🍽️", "Abendessen", nM)}</div>`;
     }
     let stack = store.radarStack(ui.pid, ui.date, f);
     if (ui.later.length) { const ix = (id) => ui.later.indexOf(id); stack = [...stack.filter((r) => ix(r.id) < 0), ...stack.filter((r) => ix(r.id) >= 0).sort((a, b) => ix(a.id) - ix(b.id))]; }
@@ -2329,7 +2329,7 @@ body { background: transparent; min-height: 100dvh; }
       }
       const limit = Math.min(150, card.offsetWidth * 0.34);
       if (Math.abs(vx) > 1.2 && Math.abs(dx) > 70) dx = (vx > 0 ? 1 : -1) * (limit + 1);
-      if (dx > limit && stage2 && ui.radar.meal === "main") { // Stufe 2, rechts: bei Mittag/Abend erst fragen, zu welcher Mahlzeit
+      if (dx > limit && stage2 && ui.radar.meal === "main" && !ui.radar.target) { // Stufe 2, rechts: bei Mittag/Abend erst fragen, zu welcher Mahlzeit
         clear(); ACT.askSlot(card.dataset.rid); return;
       }
       if (Math.abs(dx) > limit) {
@@ -2342,6 +2342,7 @@ body { background: transparent; min-height: 100dvh; }
   }
 
   async function decide(rid, action, servings, slot) {
+    if (action === "keep" && !slot && ui.radar.target) slot = ui.radar.target;
     try { LS.set("hintSeen", true); } catch (e) { /* ohne Speicher weiter */ }
     if (action === "fav") toast("In der Auswahl"); if (action === "super") toast("★ Superlike – als Favorit gespeichert");
     await run("decide:" + rid, async () => {
@@ -3076,13 +3077,13 @@ Regeln:
     cookNav: (t) => { ui.cook.step += Number(t.dataset.d); renderCook(); },
     cookTab: (t) => { ui.cook.tab = t.dataset.v; renderCook(); },
     cookEnd: () => { ui.cook = null; wakeOff(); renderCook(); },
-    pickMeal: (t) => { ui.radar = { ...ui.radar, meal: t.dataset.v || null, slot: t.dataset.v || null, stage: "alle" }; LS.set("radar", { stage: "alle" }); ui.lastDecision = null; ui.drawnKey = null; if (t.dataset.v) ensureDrawn(); schedule(); },
+    pickMeal: async (t) => { if (t.classList && t.dataset.v) { t.classList.add("flash"); await new Promise((res) => setTimeout(res, 280)); } ui.radar = { ...ui.radar, meal: t.dataset.v || null, slot: t.dataset.v || null, target: t.dataset.v ? t.dataset.slot || null : null, stage: "alle" }; LS.set("radar", { stage: "alle" }); ui.lastDecision = null; ui.drawnKey = null; if (t.dataset.v) ensureDrawn(); schedule(); },
     askSlot: (rid) => openSheet("pickSlot", { id: rid }),
     pickSlot: (t) => { const rid = ui.sheet.id; closeSheet(); decide(rid, "keep", undefined, t.dataset.slot); },
     stage: (t) => { ui.radar = { ...ui.radar, stage: t.dataset.v }; LS.set("radar", ui.radar); ui.lastDecision = null; ensureDrawn(); schedule(); },
     draw: () => run("draw", async () => { const n = await store.radarDraw(ui.pid, ui.date, ui.radar); if (!n) toast("Keine weiteren passenden Gerichte – Filter lockern oder Rezepte ergänzen."); }),
     svStep: (t) => { ui.sheet.sv = Math.max(1, Math.min(40, (ui.sheet.sv || 4) + Number(t.dataset.d))); renderSheet(true); },
-    decide: (t) => { if (t.dataset.a === "later") return ACT.later(t.dataset.id); if (t.dataset.a === "keep" && !ui.sheet && ui.radar.meal === "main") return ACT.askSlot(t.dataset.id); decide(t.dataset.id, t.dataset.a, t.dataset.sv); if (ui.sheet && ui.sheet.type === "recipe" && t.dataset.a === "keep") closeSheet(); },
+    decide: (t) => { if (t.dataset.a === "later") return ACT.later(t.dataset.id); if (t.dataset.a === "keep" && !ui.sheet && ui.radar.meal === "main" && !ui.radar.target) return ACT.askSlot(t.dataset.id); decide(t.dataset.id, t.dataset.a, t.dataset.sv); if (ui.sheet && ui.sheet.type === "recipe" && t.dataset.a === "keep") closeSheet(); },
     undoDecision: () => { const d = ui.lastDecision; if (d && d.pid === ui.pid && d.date === ui.date) { ui.lastDecision = null; if (d.deleted) run("undo:" + d.rid, () => store.restoreRecipe(d.rid, d.deleted)); else decide(d.rid, "undo"); } },
     toastUndo: () => { ui.toast = null; ACT.undoDecision(); },
     fav: (t) => run("fav:" + t.dataset.id, async () => { const on = await store.toggleFavorite(ui.pid, t.dataset.id); toast(on ? "★ Favorit gespeichert – erscheint öfter" : "Favorit entfernt"); }),
