@@ -417,6 +417,9 @@ body { background: transparent; min-height: 100dvh; }
 .stat span, .stat small { display: block; }
 .bal .bigline { display: flex; align-items: baseline; gap: 8px; } .bal .bigline b { font-size: 40px; letter-spacing: -.02em; } .bal .bigline span { font-size: 16px; color: var(--muted); } .bal .minilist { margin-top: 10px; } .bal b.ok { color: var(--accent-text); } .bal b.bad { color: var(--bad); }
 .kpis { display: grid; gap: 10px; }
+.photoest { display: grid; gap: 8px; margin-bottom: 10px; }
+.photoest label.btn { cursor: pointer; text-align: center; }
+.photoest label.btn.disabled { opacity: .6; pointer-events: none; }
 
 </style>
 <script>
@@ -661,6 +664,10 @@ body { background: transparent; min-height: 100dvh; }
     if (typeof navigator !== "undefined" && navigator.serviceWorker && /^https?:/.test(root.location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
     const assets = createAssets(client, cfg);
     root.FR_ASSET = assets.url;
+    root.FR_PHOTO = async (image) => { // Foto-Schätzung über die Supabase-Funktion meal-photo (nur eingeloggt, nur Vorschlag)
+      try { const r = await client.req("/functions/v1/meal-photo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image }) }); return await r.json(); }
+      catch (e) { let m = e && e.message || ""; try { m = JSON.parse(m).error || m; } catch (x) { /* kein JSON */ } throw new Error(e && e.code === "offline" ? "Kein Netz" : m || "Schätzung nicht möglich."); }
+    };
     const downloads = { async save({ filename, data }) {
       const b = new Blob([typeof data === "string" ? data : JSON.stringify(data)], { type: "application/json" });
       const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
@@ -2774,9 +2781,11 @@ Regeln:
       ${s.tab === "rezept" ? `<input id="am-q" type="search" placeholder="Rezept suchen" value="${esc(s.q || "")}" data-input="amq" aria-label="Rezept suchen">
         <div class="minilist">${rs.map((r) => `<div><span><b>${esc(r.title)}</b><br><span class="note">${kcal(r.nut.perPortion.kcal)} kcal je Portion · ${esc(L.QUALITY_LABEL[r.nut.quality])}</span></span>
           <span class="btns"><button class="btn sm" data-act="amAdd" data-id="${r.id}" data-s="geplant">Planen</button><button class="btn sm primary" data-act="amAdd" data-id="${r.id}" data-s="gegessen">Gegessen</button></span></div>`).join("") || `<div class="note">Keine Rezepte gefunden.</div>`}</div>`
-      : `<form data-submit="manualMeal" class="fgrid"><label class="f full">Was?<input id="mm-title" required placeholder="z. B. Brezel"></label>
-        <label class="f">kcal je Portion<input id="mm-kcal" type="number" inputmode="decimal" min="0" placeholder="keine Angabe"></label><label class="f">Portionen<input id="mm-p" type="number" inputmode="decimal" min="0.25" step="0.25" value="1"></label>
-        <label class="f">Protein g<input id="mm-protein" type="number" inputmode="decimal" min="0"></label><label class="f">Kohlenhydrate g<input id="mm-carbs" type="number" inputmode="decimal" min="0"></label><label class="f">Fett g<input id="mm-fat" type="number" inputmode="decimal" min="0"></label>
+      : `${window.FR_PHOTO ? `<div class="photoest"><label class="btn full ${s.est && s.est.busy ? "disabled" : ""}">${s.est && s.est.busy ? "Foto wird geschätzt …" : `${ic("plus", 16)} Foto machen oder wählen und schätzen`}<input id="mm-photo" type="file" accept="image/*" hidden data-change="mmPhoto"></label>
+          ${s.est && s.est.error ? `<div class="note">${esc(s.est.error)}</div>` : ""}${s.est && s.est.kcal ? `<div class="note"><b>Geschätzt aus dem Foto</b> (Sicherheit: ${esc(s.est.confidence)}). ${esc(s.est.note)} Bitte prüfen und bei Bedarf Werte oder Portionen anpassen.</div>` : ""}</div>` : ""}
+        <form data-submit="manualMeal" class="fgrid"><label class="f full">Was?<input id="mm-title" required placeholder="z. B. Brezel" value="${esc((s.est && s.est.title) || "")}"></label>
+        <label class="f">kcal je Portion<input id="mm-kcal" type="number" inputmode="decimal" min="0" placeholder="keine Angabe" value="${s.est && s.est.kcal != null ? s.est.kcal : ""}"></label><label class="f">Portionen<input id="mm-p" type="number" inputmode="decimal" min="0.25" step="0.25" value="1"></label>
+        <label class="f">Protein g<input id="mm-protein" type="number" inputmode="decimal" min="0" value="${s.est && s.est.protein != null ? s.est.protein : ""}"></label><label class="f">Kohlenhydrate g<input id="mm-carbs" type="number" inputmode="decimal" min="0" value="${s.est && s.est.carbs != null ? s.est.carbs : ""}"></label><label class="f">Fett g<input id="mm-fat" type="number" inputmode="decimal" min="0" value="${s.est && s.est.fat != null ? s.est.fat : ""}"></label>
         <label class="f">Status<select id="mm-status"><option value="gegessen">gegessen</option><option value="geplant">geplant</option></select></label>
         <div class="note full">Ohne Kalorienwert wird nichts angerechnet und der Tag gilt als unvollständig.</div><button class="btn primary full">Eintragen</button></form>`}`;
   }
@@ -3244,6 +3253,18 @@ Regeln:
       if (ui.sheet.im.preview) URL.revokeObjectURL(ui.sheet.im.preview);
       ui.sheet.im.preview = URL.createObjectURL(f);
       renderSheet(true);
+    }
+    if (ui.sheet && ui.sheet.type === "addMeal" && t.dataset.change === "mmPhoto" && t.files[0] && window.FR_PHOTO) {
+      const sh = ui.sheet; sh.est = { busy: true }; renderSheet(true);
+      try {
+        const im = (await loadImage(t.files[0])).el, k = Math.min(1, 1024 / Math.max(im.naturalWidth, im.naturalHeight));
+        const c = document.createElement("canvas"); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        const o = await window.FR_PHOTO(c.toDataURL("image/jpeg", 0.8));
+        if (ui.sheet === sh) sh.est = o;
+      } catch (err) { if (ui.sheet === sh) sh.est = { error: err && err.message ? err.message : "Schätzung nicht möglich." }; }
+      if (ui.sheet === sh) renderSheet(true);
+      return;
     }
     if (ed && t.dataset.change === "edImage" && t.files[0]) {
       try { ed.image = await loadImage(t.files[0]); const b = autoBox(ed.image.el); ed.box = b || { l: 0, t: 0, r: 100, b: 100 }; } catch (err) { toast("Bild konnte nicht geladen werden."); }
