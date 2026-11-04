@@ -2580,6 +2580,15 @@ Regeln:
       <section class="card"><h2>Apple Health</h2>
         <div class="sub">Der iPhone-Kurzbefehl schickt Gewicht und Workouts an Foody. Die App übernimmt sie beim Öffnen${open ? ` (jetzt ${open} wartend)` : ""}.</div>
         <div class="note">Übernommen wird nur, was einen echten Wert hat: Gewicht zwischen 20 und 300 kg, Workouts nur mit Kalorienwert. Foody schätzt nichts.</div></section>
+      ${(() => {
+        const end = today(), { days } = store.historyDays(pid, L.addDays(end, -6), end);
+        const rows = days.filter((d) => d.burn && (d.burn.rest != null || d.burn.active != null)).reverse();
+        const at = rows.length && rows[0].burn.at ? new Date(rows[0].burn.at).toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "";
+        const tot = (b) => (b.rest || 0) + (b.active || 0);
+        return `<section class="card"><h3>Verbrauch aus Health</h3>${rows.length ? `<div class="note">Zuletzt aktualisiert: ${esc(at)} Uhr</div>
+          <div class="scroll"><table class="tbl"><thead><tr><th>Tag</th><th class="r">Ruhe</th><th class="r">Aktiv</th><th class="r">Gesamt</th></tr></thead><tbody>${rows.map((d) => `<tr><td>${esc(fmtDate(d.date))}</td><td class="r">${d.burn.rest == null ? "–" : de(d.burn.rest)}</td><td class="r">${d.burn.active == null ? "–" : de(d.burn.active)}</td><td class="r"><b>${de(tot(d.burn))}</b></td></tr>`).join("")}</tbody></table></div><div class="note">Werte in kcal, die der Kurzbefehl zuletzt geschickt hat.</div>`
+          : `<div class="note">Noch keine Werte angekommen. Starte den Kurzbefehl einmal, dann erscheinen sie hier.</div>`}</section>`;
+      })()}
       <section class="card"><h3>Jetzt aktualisieren</h3>
         <div class="note">Startet deinen Kurzbefehl von hier. iOS wechselt kurz zu Kurzbefehle und wieder zurück. Name genau wie in der Kurzbefehle-App eintragen.</div>
         <input id="hk-name" class="inp" placeholder="Name des Kurzbefehls" autocomplete="off" value="${esc(LS.get("hkname", ""))}">
