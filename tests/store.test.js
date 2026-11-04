@@ -376,3 +376,21 @@ test("Match: Gerichte, die die andere Person heute auswählt, stehen vorn und tr
   const s2 = st.radarStack("p1", DAY, { stage: "fav" });
   assert.equal(s2[0].id, b.id); assert.ok(s2[0].matchWith.length > 0); assert.equal(s2[1].matchWith, "");
 });
+
+test("Apple Health: Gewicht und Workout mit kcal werden übernommen, Unbrauchbares verworfen, Eingang leer", async () => {
+  const { db, st } = await ready();
+  await db.doc("health/p1").set({ entries: {
+    w1: { type: "weight", date: DAY, kg: 79.6 },
+    s1: { type: "workout", date: DAY, name: "Laufen", kcal: 350, minutes: 30 },
+    s2: { type: "workout", date: DAY, name: "Yoga", kcal: 0, minutes: 30 },   // ohne Verbrauchswert: nicht anrechnen
+    w2: { type: "weight", date: DAY, kg: 5 },                                   // unmöglich
+  } });
+  await new Promise((r) => setTimeout(r, 20));
+  const n = await st.importHealth("p1");
+  assert.equal(n, 2);
+  assert.equal(st.weights("p1").entries.find((e) => e.date === DAY).kg, 79.6);
+  const acts = st.activities("p1", DAY);
+  assert.equal(acts.length, 1); assert.equal(acts[0].kcal, 350); assert.equal(acts[0].kind, "laufen");
+  assert.equal(st.hkOpen("p1").length, 0);
+  assert.equal(await st.importHealth("p1"), 0);
+});

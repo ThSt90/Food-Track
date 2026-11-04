@@ -402,15 +402,17 @@ button, a, [data-act], summary { touch-action: manipulation; -webkit-tap-highlig
 
 .hintline { text-align: center; min-height: 20px; line-height: 20px; flex: none; }
 
-/* Pastell-Verlauf in der gewählten Akzentfarbe */
-html { background: var(--bg); }
-body { background: transparent; }
-body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  --t1: color-mix(in srgb, var(--accent) 42%, var(--bg)); --t2: color-mix(in srgb, var(--accent) 20%, var(--bg));
-  background:
-    radial-gradient(120% 60% at 0% 0%, var(--t1) 0%, transparent 60%),
-    radial-gradient(110% 55% at 100% 100%, color-mix(in srgb, var(--accent-2, var(--accent)) 32%, var(--bg)) 0%, transparent 62%),
-    linear-gradient(160deg, var(--t2), var(--bg) 70%); }
+/* Pastell-Verlauf in der gewählten Akzentfarbe (auf html, damit er auch auf iOS die ganze Fläche füllt) */
+html { min-height: 100%; background-color: var(--bg);
+  background-image:
+    radial-gradient(120% 55% at 0% 0%, color-mix(in srgb, var(--accent) 42%, var(--bg)) 0%, transparent 60%),
+    radial-gradient(110% 50% at 100% 100%, color-mix(in srgb, var(--accent-2, var(--accent)) 32%, var(--bg)) 0%, transparent 62%),
+    linear-gradient(160deg, color-mix(in srgb, var(--accent) 20%, var(--bg)), var(--bg) 70%);
+  background-repeat: no-repeat; background-attachment: fixed; background-size: 100% 100%; }
+body { background: transparent; min-height: 100dvh; }
+.codeblock { margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--surface-2); }
+.codeblock .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.codeblock pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; font: 12px/1.4 ui-monospace, monospace; user-select: all; }
 
 </style>
 <script>
@@ -439,7 +441,9 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
     try { session = JSON.parse(storage.getItem(KEY) || "null"); } catch (e) { session = null; }
     const save = (s) => { session = s; try { s ? storage.setItem(KEY, JSON.stringify(s)) : storage.removeItem(KEY); } catch (e) { /* ohne Speicher weiter */ } };
     const tokenCall = async (grant, body) => {
-      const r = await f(`${cfg.url}/auth/v1/token?grant_type=${grant}`, { method: "POST", headers: { apikey: cfg.key, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      let r;
+      try { r = await f(`${cfg.url}/auth/v1/token?grant_type=${grant}`, { method: "POST", headers: { apikey: cfg.key, "Content-Type": "application/json" }, body: JSON.stringify(body) }); }
+      catch (e) { throw Object.assign(new Error("Kein Netz"), { code: "offline" }); }
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.access_token) throw new Error(j.error_description || j.msg || "Anmeldung fehlgeschlagen");
       save({ access: j.access_token, refresh: j.refresh_token, exp: Date.now() + (j.expires_in || 3600) * 1000 - 60000, email: body.email || (session && session.email) });
@@ -450,9 +454,12 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
     const logout = () => save(null);
     async function req(path, opt = {}, retry = true) {
       if (!session) throw Object.assign(new Error("nicht angemeldet"), { code: "unauthenticated" });
-      if (Date.now() > session.exp) { try { await refresh(); } catch (e) { save(null); throw Object.assign(e, { code: "unauthenticated" }); } }
-      const r = await f(cfg.url + path, { ...opt, headers: { apikey: cfg.key, Authorization: "Bearer " + session.access, ...(opt.headers || {}) } });
-      if (r.status === 401 && retry) { try { await refresh(); } catch (e) { save(null); throw Object.assign(e, { code: "unauthenticated" }); } return req(path, opt, false); }
+      const lose = (e) => { if (e.code === "offline") throw e; save(null); throw Object.assign(e, { code: "unauthenticated" }); }; // ohne Netz bleibt die Anmeldung erhalten
+      if (Date.now() > session.exp) { try { await refresh(); } catch (e) { lose(e); } }
+      let r;
+      try { r = await f(cfg.url + path, { ...opt, headers: { apikey: cfg.key, Authorization: "Bearer " + session.access, ...(opt.headers || {}) } }); }
+      catch (e) { throw Object.assign(new Error("Kein Netz"), { code: "offline" }); }
+      if (r.status === 401 && retry) { try { await refresh(); } catch (e) { lose(e); } return req(path, opt, false); }
       if (!r.ok) { const t = await r.text().catch(() => ""); throw Object.assign(new Error(t || "Fehler " + r.status), { code: "http_" + r.status }); }
       return r;
     }
@@ -462,6 +469,18 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
   /** db-Schnittstelle (doc/collection/onSnapshot) auf der Tabelle docs. */
   function createDb(client, opts = {}) {
     const POLL = opts.pollMs ?? 5000;
+    const pollOf = (coll) => (opts.pollFor && opts.pollFor(coll)) || POLL;
+    const store = opts.storage !== undefined ? opts.storage : (typeof root.localStorage !== "undefined" ? root.localStorage : null);
+    const sget = (k, d) => { try { const v = store && store.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+    const sset = (k, v) => { try { store && store.setItem(k, JSON.stringify(v)); } catch (e) { /* voll oder gesperrt */ } };
+    let outbox = sget("fr:outbox", []);           // [{path, data|null}] noch nicht gesendete Änderungen (offline)
+    const net = { offline: false, queued: outbox.length };
+    const emit = () => { net.queued = outbox.length; try { if (typeof root.dispatchEvent === "function" && typeof root.CustomEvent === "function") root.dispatchEvent(new root.CustomEvent("fr:net", { detail: { ...net } })); } catch (e) { /* kein Fenster */ } };
+    const isNet = (e) => e && e.code === "offline";
+    const savedAt = {};
+    const snapSave = (coll) => { clearTimeout(savedAt[coll]); savedAt[coll] = setTimeout(() => sset("fr:snap:" + coll, [...(cache[coll] || new Map()).entries()]), 400); };
+    const snapLoad = (coll) => { const a = sget("fr:snap:" + coll, null); return a ? new Map(a) : null; };
+    const queuedIn = (coll) => outbox.some((o) => split(o.path).coll === coll);
     const enc = encodeURIComponent;
     const cache = {};      // coll -> Map(id -> data)
     const loaded = {};     // coll -> true
@@ -483,14 +502,48 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
       return m;
     }
     async function refreshColl(coll, force) {
-      if (!force && pending[coll]) return;
-      const m = await fetchColl(coll);
-      if (pending[coll]) return; // lokale Änderungen laufen noch: nicht überschreiben
+      if (!force && (pending[coll] || queuedIn(coll))) return;
+      let m;
+      try { m = await fetchColl(coll); net.offline = false; }
+      catch (e) {
+        if (!isNet(e)) throw e;
+        if (!net.offline) { net.offline = true; emit(); }
+        if (!loaded[coll]) { const sn = snapLoad(coll); if (sn) { cache[coll] = sn; loaded[coll] = true; fireAll(coll); return; } }
+        throw e;
+      }
+      if (net.queued || outbox.length) { flush().catch(() => {}); }
+      if (pending[coll] || queuedIn(coll)) return; // lokale Änderungen laufen noch: nicht überschreiben
       const canon = (v) => (Array.isArray(v) ? "[" + v.map(canon).join(",") + "]" : isObj(v) ? "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + canon(v[k])).join(",") + "}" : JSON.stringify(v));
       const of = (mm) => canon([...mm.entries()].sort(([a], [b]) => (a < b ? -1 : 1)));
       const s = of(m);
       if (loaded[coll] && s === of(cache[coll] || new Map())) { sig[coll] = s; return; } // Server = lokaler Stand: nichts neu zeichnen
-      sig[coll] = s; cache[coll] = m; loaded[coll] = true; fireAll(coll);
+      sig[coll] = s; cache[coll] = m; loaded[coll] = true; snapSave(coll); fireAll(coll);
+    }
+    let flushing = null;
+    /** Schickt in der Warteschlange gesammelte Offline-Änderungen der Reihe nach ab. */
+    function flush() {
+      if (flushing || !outbox.length) return flushing || Promise.resolve();
+      return (flushing = (async () => {
+        try {
+          while (outbox.length) {
+            const o = outbox[0];
+            try { await (o.data === null ? client.req(`/rest/v1/docs?path=eq.${enc(o.path)}`, { method: "DELETE" }) : upsert(o.path, o.data)); }
+            catch (e) { if (isNet(e)) { if (!net.offline) { net.offline = true; emit(); } return; } if (e.code === "unauthenticated") return; /* sonst verwerfen, damit nichts hängt */ }
+            outbox.shift(); sset("fr:outbox", outbox);
+          }
+          net.offline = false;
+          for (const c of Object.keys(subs)) refreshColl(c, true).catch(() => {});
+        } finally { flushing = null; emit(); }
+      })());
+    }
+    /** Schreibt ein Dokument; ohne Netz landet die Änderung in der Warteschlange statt verloren zu gehen. */
+    async function send(path, data, coll) {
+      try { data === null ? await client.req(`/rest/v1/docs?path=eq.${enc(path)}`, { method: "DELETE" }) : await upsert(path, data); }
+      catch (e) {
+        if (!isNet(e)) { refreshColl(coll, true).catch(() => {}); throw e; }
+        outbox = outbox.filter((o) => o.path !== path); outbox.push({ path, data }); sset("fr:outbox", outbox);
+        net.offline = true; emit(); snapSave(coll);
+      }
     }
     const write = async (coll, fn) => {
       pending[coll] = (pending[coll] || 0) + 1;
@@ -514,16 +567,16 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
           if (!isObj(data)) throw invalid("Body muss ein Objekt sein");
           if (JSON.stringify(data).length > 256 * 1024) throw invalid("zu groß");
           local(clone(data)); // sofort anzeigen, Speichern läuft im Hintergrund
-          try { await upsert(path, clone(data)); } catch (e) { refreshColl(coll, true).catch(() => {}); throw e; }
+          await send(path, clone(data), coll); snapSave(coll);
         }),
         update: (data) => write(coll, async () => {
           const hit = loaded[coll] ? (cache[coll] || new Map()).get(id) : undefined;
           const cur = hit !== undefined ? clone(hit) : await getRemote();
           if (cur === undefined) throw invalid("Dokument existiert nicht");
           merge(cur, clone(data)); local(cur); // sofort anzeigen, Speichern läuft im Hintergrund
-          try { await upsert(path, cur); } catch (e) { refreshColl(coll, true).catch(() => {}); throw e; }
+          await send(path, cur, coll); snapSave(coll);
         }),
-        delete: () => write(coll, async () => { local(undefined); try { await client.req(`/rest/v1/docs?path=eq.${enc(path)}`, { method: "DELETE" }); } catch (e) { refreshColl(coll, true).catch(() => {}); throw e; } }),
+        delete: () => write(coll, async () => { local(undefined); await send(path, null, coll); snapSave(coll); }),
       };
     }
     function collection(coll) {
@@ -534,12 +587,31 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
           const l = { fire: () => { if (loaded[coll]) next(snapOf(coll)); } };
           (subs[coll] = subs[coll] || new Set()).add(l);
           if (loaded[coll]) l.fire(); else refreshColl(coll, true).catch((e) => err && err(e));
-          if (!timers[coll] && POLL > 0) timers[coll] = setInterval(() => { if (typeof document !== "undefined" && document.hidden) return; refreshColl(coll).catch(() => {}); }, POLL);
+          if (!timers[coll] && pollOf(coll) > 0) timers[coll] = setInterval(() => { if (typeof document !== "undefined" && document.hidden) return; if (outbox.length) flush().catch(() => {}); refreshColl(coll).catch(() => {}); }, pollOf(coll));
           return () => { subs[coll].delete(l); if (!subs[coll].size && timers[coll]) { clearInterval(timers[coll]); timers[coll] = null; } };
         },
       };
     }
-    return { doc, collection };
+    if (typeof root.addEventListener === "function") {
+      root.addEventListener("online", () => { flush().catch(() => {}); for (const c of Object.keys(subs)) refreshColl(c, true).catch(() => {}); });
+      root.addEventListener("offline", () => { net.offline = true; emit(); });
+    }
+    if (outbox.length) setTimeout(() => flush().catch(() => {}), 1500);
+    return { doc, collection, flush, status: () => ({ ...net, queued: outbox.length }) };
+  }
+
+  /** Kleines Banner oben, solange offline oder Änderungen auf das Senden warten. */
+  function netBanner() {
+    if (typeof document === "undefined") return;
+    const el = document.createElement("div");
+    el.id = "fr-net"; el.setAttribute("role", "status");
+    el.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 6px);z-index:90;background:#2b2724;color:#fff;padding:6px 12px;border-radius:999px;font:700 13px system-ui,sans-serif;display:none;box-shadow:0 4px 14px rgba(0,0,0,.3)";
+    document.body.appendChild(el);
+    root.addEventListener("fr:net", (e) => {
+      const d = e.detail || {};
+      el.style.display = d.offline || d.queued ? "block" : "none";
+      el.textContent = d.offline ? "Offline" + (d.queued ? " · " + d.queued + " Änderung" + (d.queued === 1 ? "" : "en") + " warten" : "") : "Sende " + d.queued + " Änderung" + (d.queued === 1 ? "" : "en") + " …";
+    });
   }
 
   /** Bilder: öffentlicher Storage-Bucket "images"; ältere Bilder liegen als img/<id>.jpg im Repository. */
@@ -580,7 +652,9 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
 
   function install(cfg) {
     const client = createClient(cfg, null, root.localStorage);
-    const db = createDb(client);
+    const db = createDb(client, { pollFor: (c) => (/^shopping/.test(c) ? 2500 : 0) });
+    if (typeof document !== "undefined") { if (document.body) netBanner(); else document.addEventListener("DOMContentLoaded", netBanner); }
+    if (typeof navigator !== "undefined" && navigator.serviceWorker && /^https?:/.test(root.location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
     const assets = createAssets(client, cfg);
     root.FR_ASSET = assets.url;
     const downloads = { async save({ filename, data }) {
@@ -1179,6 +1253,7 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
  *   favorites/{pid}            {ids: {rezeptId: true}}
  *   days/{pid}__{datum}        Tageswerte (eingefrorenes Ziel), Mahlzeiten, Sport, Radar-Entscheidungen
  *   weights/{pid}              {entries: {datum: {kg, note}}}
+ *   health/{pid}               Eingang für Apple Health (Kurzbefehl → Edge Function): {entries: {schlüssel: {type: weight|workout, date, kg | kcal, minutes, name}}}
  *   shopping/{datum}__{scope}  Nutzerzustand der Einkaufsliste (abgehakt, vorhanden, eigene Posten)
  *   settings/sport             eigene Sportarten und Verbrauchswerte je Person
  *
@@ -1202,7 +1277,7 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
   const slotForCategory = (c, hour = 18) => (normCat(c) === "main" ? (hour < 15 ? "mittag" : "abend") : normCat(c));
   const OPEN = ["vorgemerkt", "geplant", "gekocht"];
   const SPORT_KINDS = [["kraft", "Krafttraining"], ["laufen", "Laufen"], ["rad", "Radfahren"], ["schwimmen", "Schwimmen"], ["golf", "Golf"], ["sonstiges", "Sonstiges"]];
-  const COLLECTIONS = ["profiles", "foods", "recipes", "favorites", "days", "weights", "shopping", "settings", "imports"];
+  const COLLECTIONS = ["profiles", "foods", "recipes", "favorites", "days", "weights", "shopping", "settings", "imports", "health"];
   const DEFAULT_PROFILES = {
     p1: { name: "Profil 1", sex: "m", ageYears: 37, birthDate: null, heightCm: null, pal: 1.5, goalMode: "halten", deficitKcal: 500, goalKcalManual: null, targetWeightKg: null, sportCreditPct: 100, dislikes: "", likes: "" },
     p2: { name: "Profil 2", sex: "w", ageYears: 35, birthDate: null, heightCm: null, pal: 1.5, goalMode: "halten", deficitKcal: 500, goalKcalManual: null, targetWeightKg: null, sportCreditPct: 100, dislikes: "", likes: "" },
@@ -1700,6 +1775,28 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
       const w = clone(S.weights[pid] || { entries: {} }); w.entries[date] = null; S.weights[pid] = w;
       await refreshDaySnapshots(pid);
     }
+    // ------------------------------------------------------------------ Apple Health (Eingang)
+    const HK_KIND = [[/kraft|strength|functional/i, "kraft"], [/lauf|run|walk|geh/i, "laufen"], [/rad|cycl|bike/i, "rad"], [/schwimm|swim/i, "schwimmen"], [/golf/i, "golf"]];
+    const hkOpen = (pid) => live((S.health[pid] || {}).entries);
+    let hkBusy = false;
+    /** Übernimmt eingegangene Health-Werte über die normalen Wege: Gewicht nur 20–300 kg, Sport nur mit Verbrauchswert (kcal > 0). */
+    async function importHealth(pid) {
+      if (hkBusy) return 0;
+      hkBusy = true; let n = 0;
+      try {
+        for (const [key, e] of hkOpen(pid)) {
+          const okDate = /^\d{4}-\d{2}-\d{2}$/.test(e.date || "");
+          if (okDate && e.type === "weight" && Number(e.kg) >= 20 && Number(e.kg) <= 300) { await upsertWeight(pid, e.date, Math.round(Number(e.kg) * 10) / 10, "Apple Health"); n++; }
+          else if (okDate && e.type === "workout" && Number(e.kcal) > 0) {
+            const kind = (HK_KIND.find(([re]) => re.test(e.name || "")) || [null, "sonstiges"])[1];
+            await addActivity(pid, e.date, { id: "hk" + key, kind, minutes: Math.max(0, Number(e.minutes) || 0), kcal: Number(e.kcal) }); n++;
+          }
+          await patch("health/" + pid, { entries: {} }, { entries: { [key]: null } }); // gültig oder unbrauchbar: aus dem Eingang nehmen
+        }
+      } finally { hkBusy = false; }
+      return n;
+    }
+
     function weights(pid) {
       const entries = weightEntries(pid);
       const trend = L.weightTrend(entries.map((e) => e.kg));
@@ -1743,7 +1840,7 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
       foodList, foodMap, recipes, recipe, saveRecipe, deleteRecipe, findDuplicates, toggleFavorite, favSet,
       sportKinds, sportRates, setSportRate, addSportKind, addActivity, deleteActivity, activities,
       radarStack, radarFavCount, radarReset, radarDraw, radarDecide, radarLists, shopping, shoppingSet, shoppingReset, shoppingAdd, shoppingRemove,
-      historyDays, weights, upsertWeight, deleteWeight, saveFood, saveImport,
+      importHealth, hkOpen, historyDays, weights, upsertWeight, deleteWeight, saveFood, saveImport,
     };
   }
 
@@ -1847,7 +1944,7 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
     if (!store || ui.status !== "ok") { app.innerHTML = header(false) + bootState(); return; }
     if (window.FR_PROFILE && ui.pid !== window.FR_PROFILE) { ui.pid = window.FR_PROFILE; LS.set("pid", ui.pid); }
     if (!store.profile(ui.pid)) ui.pid = (store.profiles()[0] || {}).id || "p1";
-    const views = { heute: vHeute, radar: vRadar, rezepte: vRezepte, einkauf: vEinkauf, mehr: vMehr, historie: vHistorie, rueckblick: vRueckblick, gewicht: vGewicht, profil: vProfil };
+    const views = { heute: vHeute, radar: vRadar, rezepte: vRezepte, einkauf: vEinkauf, mehr: vMehr, historie: vHistorie, rueckblick: vRueckblick, health: vHealth, gewicht: vGewicht, profil: vProfil };
     const html = header(ui.view === "heute" && ui.hmode !== "woche") + (ui.readOnly ? `<div class="notice">Nur Ansicht: Du kannst diese Seite lesen, aber nichts ändern.</div>` : "") + (views[ui.view] || vHeute)();
     // Unveränderte Ansicht nicht neu aufbauen: ein Neuzeichnen zwischen Berühren und Loslassen verschluckt auf dem iPhone den Tipp
     if (html !== ui.lastHtml || app.dataset.v !== ui.view) { app.innerHTML = html; ui.lastHtml = html; app.dataset.v = ui.view; bindSwipe(); }
@@ -1908,7 +2005,7 @@ body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-event
   }
   let toastTimer = null;
   // Keine Bestätigungs-Popups: nur Fehler, Warnungen und die zwei Hinweise, die sonst fehlen würden
-  const TOAST_OK = /^(Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|„.*“ gelöscht)/;
+  const TOAST_OK = /^(Kopiert|\d+ Werte? aus Apple|Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|„.*“ gelöscht)/;
   function toast(text, undo) { if (!TOAST_OK.test(String(text))) return; ui.toast = { text, undo }; renderToast(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { ui.toast = null; renderToast(); }, undo ? 6000 : 3000); }
 
   // ================================================================== Gemeinsame Bausteine
@@ -2392,7 +2489,7 @@ Regeln:
             ${open.length ? `<button class="btn" data-act="shopShare">Offene Posten teilen / kopieren (z. B. für Bring!)</button>` : ""}
       <form class="fgrid three" data-submit="shopAdd"><input id="shop-n" placeholder="Eigener Posten" aria-label="Eigener Posten" required class="full">
         <input id="shop-a" inputmode="decimal" placeholder="Menge" aria-label="Menge"><input id="shop-u" placeholder="Einheit" aria-label="Einheit"><button class="btn">${ic("plus", 16)} Hinzufügen</button></form>
-      <div class="note">Gleiche Zutaten werden über alle Gerichte addiert, wenn die Einheiten zusammenpassen (g/kg, ml/l/EL/TL). Andere Einheiten bleiben getrennte Posten.</div></section>`;
+      <div class="note">Gleiche Zutaten werden über alle Gerichte addiert, wenn die Einheiten zusammenpassen (g/kg, ml/l/EL/TL). Andere Einheiten bleiben getrennte Posten.</div>${ps.length > 1 ? `<div class="note">Die Liste ist live geteilt: Abhaken und Änderungen der anderen Person erscheinen nach wenigen Sekunden.</div>` : ""}</section>`;
   }
 
   // ================================================================== Mehr, Historie, Gewicht
@@ -2407,6 +2504,7 @@ Regeln:
       ${curHex ? `<button class="btn sm ghost" data-act="accentReset" style="align-self:flex-start">Zurück zum Standard</button>` : ""}</details>`;
     return `<h2>Mehr</h2><div class="eyebrow">Auswertung</div><div class="more">
       <button data-act="view" data-v="rueckblick">${ic("radar")}<span>Wochenrückblick<br><span class="note">Die letzten 7 Tage auf einen Blick</span></span></button>
+      <button data-act="view" data-v="health">${ic("check")}<span>Apple Health<br><span class="note">Workouts und Waage per Kurzbefehl</span></span></button>
       <button data-act="view" data-v="historie">${ic("cal")}<span>Historie und Statistik<br><span class="note">Kalender, Wochen und Monate</span></span></button>
       <button data-act="view" data-v="gewicht">${ic("scale")}<span>Gewicht<br><span class="note">Verlauf, Trend und Ziel</span></span></button></div>
       <div class="eyebrow">Einstellungen</div><div class="more">
@@ -2440,6 +2538,23 @@ Regeln:
       <section class="card"><h3>Kalorien pro Tag</h3>${histChart(days)}<div class="note">Balken = gegessen, Linie = Budget (Ziel + Sport). Grau = Tag nicht als vollständig markiert.</div></section>
       ${cal}
       <div class="note">Ein Tag zählt erst, wenn du ihn unter „Ausgewählt“ als vollständig erfasst markierst und alle gegessenen Mahlzeiten einen Kalorienwert haben. Tage ohne Einträge werden weder als Erfolg noch als Misserfolg gewertet.</div>`;
+  }
+
+  const HEALTH_URL = () => `${(window.FR_CONFIG && window.FR_CONFIG.url) || "https://DEIN-PROJEKT.supabase.co"}/functions/v1/health-import`;
+  function vHealth() {
+    const pid = ui.pid;
+    const code = (label, text) => `<div class="codeblock"><div class="row"><b>${label}</b><button class="btn sm" data-act="copyText" data-text="${esc(text)}">Kopieren</button></div><pre>${esc(text)}</pre></div>`;
+    const ex = JSON.stringify({ profile: pid, weightKg: 80.4, workouts: [{ name: "Laufen", kcal: 350, minutes: 30 }] }, null, 2);
+    const open = store.hkOpen(pid).length;
+    return `<div class="toprow"><button class="btn sm" data-act="view" data-v="mehr">${ic("left", 16)} Mehr</button></div>
+      <section class="card"><h2>Apple Health</h2>
+        <div class="sub">Der iPhone-Kurzbefehl schickt Gewicht und Workouts an Foody. Die App übernimmt sie beim Öffnen${open ? ` (jetzt ${open} wartend)` : ""}.</div>
+        <div class="note">Übernommen wird nur, was einen echten Wert hat: Gewicht zwischen 20 und 300 kg, Workouts nur mit Kalorienwert. Foody schätzt nichts.</div></section>
+      <section class="card"><h3>1. Einmalig: Geheimwort setzen</h3><div class="note">In Supabase unter Edge Functions → Secrets ein Secret <b>HEALTH_KEY</b> mit einem selbst gewählten langen Wort anlegen.</div></section>
+      <section class="card"><h3>2. Kurzbefehl bauen</h3>
+        <div class="note">Kurzbefehle → Automation → Persönlich: „Tageszeit“ (z. B. 21:00) oder „Workout beenden“. Aktionen: „Health-Werte suchen“ (Gewicht bzw. Workouts), danach „Inhalte von URL abrufen“ mit diesen Angaben:</div>
+        ${code("URL (Methode POST)", HEALTH_URL())}${code("Header", "x-health-key: <dein Geheimwort>")}${code("Anfragetext (JSON)", ex)}
+        <div class="note">Werte (80.4, 350, 30) durch die Health-Variablen ersetzen. Datum ist optional ("date": "JJJJ-MM-TT"), sonst gilt heute.</div></section>`;
   }
 
   function vRueckblick() {
@@ -2808,6 +2923,7 @@ Regeln:
       const p = Math.max(0.5, Math.round((m.portions + Number(t.dataset.d)) * 4) / 4);
       if (p !== m.portions) await store.updateMeal(ui.pid, ui.date, m.id, { portions: p });
     }),
+    copyText: async (t) => { try { await navigator.clipboard.writeText(t.dataset.text); toast("Kopiert"); } catch (e) { toast("Kopieren nicht möglich in dieser Ansicht."); } },
     rbShift: (t) => { const e = L.addDays(ui.rbEnd || today(), Number(t.dataset.n)); ui.rbEnd = e >= today() ? null : e; schedule(); },
     hmode: (t) => { ui.hmode = t.dataset.v; LS.set("hmode", ui.hmode); schedule(); },
     weekShift: (t) => { ui.date = L.addDays(ui.date, 7 * Number(t.dataset.n)); schedule(); },
@@ -3154,6 +3270,7 @@ Regeln:
         ui.status = Object.keys(S.profiles).length ? "ok" : "leer";
         if (ui.status === "ok" && ui.view === "radar") ensureDrawn();
       } else if (ui.status === "leer" && Object.keys(S.profiles).length) ui.status = "ok";
+      if (ui.status === "ok" && S.ready.health && S.ready.weights && S.ready.days) for (const pr of visibleProfiles()) if (store.hkOpen(pr.id).length) store.importHealth(pr.id).then((n) => n && toast(n + " Wert" + (n === 1 ? "" : "e") + " aus Apple Health übernommen")).catch((e) => console.error(e));
       schedule();
     });
     store.subscribe();

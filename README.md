@@ -1,4 +1,4 @@
-# Foody
+# Foody (früher Food Radar)
 
 Persönliches Ernährungs-Dashboard für zwei Personen: Kalorienbudget, Recipe Radar zum Wischen, Screenshot-Import, Einkaufsliste, Historie und Gewicht. Gestaltet nach dem Aktien-Radar.
 
@@ -81,6 +81,7 @@ Dokumentdatenbank, ein Dokument je Pfad. Gelöschte Einträge innerhalb eines Do
 | `days/{pid}__{datum}` | **eingefrorenes Tagesziel** und Sportanrechnung, Sport-Haken, „vollständig erfasst“, **Mahlzeiten** (Status, Portionen, beim Verzehr eingefrorene Nährwerte + Rezeptversion), **Sporteinheiten**, **Radar-Entscheidungen** |
 | `weights/{pid}` | `{entries: {datum: {kg, note}}}` |
 | `shopping/{datum}__{umfang}` | abgehakt, vorhanden, geänderte Mengen, eigene Posten |
+| `health/{pid}` | Eingang für Apple Health (Edge Function `health-import`, Secret `HEALTH_KEY`); die App übernimmt Gewicht (20–300 kg) und Workouts (nur mit kcal) und leert den Eingang |
 | `settings/sport` | eigene Sportarten, Verbrauchswerte je Person |
 
 Ein Tag ist ein Dokument. So bleibt die Datenbank klein (Limit 25.000 Dokumente, rund 730 Tagesdokumente pro Jahr für zwei Personen), und alles, was eine Buchung betrifft, wird in einem Schreibvorgang geändert.
@@ -224,3 +225,8 @@ Jede Karte zeigt, warum sie kommt. Wischen löscht nie ein Rezept; jede Entschei
 - **Lebensmitteltabelle** ist klein (48 Einträge). Zutaten ohne Treffer machen berechnete Werte „unvollständig“, bis du ein Lebensmittel ergänzt oder die Originalwerte des Rezepts nutzt.
 - **Daten liegen bei Claude**, nicht in OneDrive. Unter Profile → Daten gibt es eine JSON-Sicherung zum Herunterladen.
 - iPhone-Fotos im HEIC-Format: Der Zuschnitt wird als JPEG gespeichert. Das unveränderte Original wird nur aufbewahrt, wenn das Format unterstützt wird (PNG, JPEG, WebP, GIF).
+
+
+## Offline und Live-Sync
+
+`docs/sw.js` (Service Worker) hält App und Bilder offline bereit, online gewinnt immer die neueste Version. `backend.js` speichert einen Datenstand lokal und sammelt Änderungen ohne Netz in einer Warteschlange (`fr:outbox`), die beim Wiederverbinden gesendet wird. Die Einkaufsliste wird alle 2,5 s abgeglichen.

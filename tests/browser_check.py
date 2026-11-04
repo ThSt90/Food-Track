@@ -311,6 +311,8 @@ def main() -> int:
         check("Wochenrückblick öffnet", "Wochenrückblick" in body())
         page.click("[data-act=rbShift][data-n='-7']"); page.wait_for_timeout(200)
         check("Wochenrückblick: Vorwoche blättert", "Wochenrückblick" in body())
+        nav("Mehr"); page.click("text=Apple Health"); page.wait_for_timeout(300)
+        check("Apple Health: Anleitung mit Kopier-Buttons", "x-health-key" in body() and page.locator("[data-act=copyText]").count() >= 3)
         browser.close()
     httpd.shutdown()
     bad = [e for e in errors if "favicon" not in e]

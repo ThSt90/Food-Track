@@ -398,12 +398,14 @@ button, a, [data-act], summary { touch-action: manipulation; -webkit-tap-highlig
 
 .hintline { text-align: center; min-height: 20px; line-height: 20px; flex: none; }
 
-/* Pastell-Verlauf in der gewählten Akzentfarbe */
-html { background: var(--bg); }
-body { background: transparent; }
-body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  --t1: color-mix(in srgb, var(--accent) 42%, var(--bg)); --t2: color-mix(in srgb, var(--accent) 20%, var(--bg));
-  background:
-    radial-gradient(120% 60% at 0% 0%, var(--t1) 0%, transparent 60%),
-    radial-gradient(110% 55% at 100% 100%, color-mix(in srgb, var(--accent-2, var(--accent)) 32%, var(--bg)) 0%, transparent 62%),
-    linear-gradient(160deg, var(--t2), var(--bg) 70%); }
+/* Pastell-Verlauf in der gewählten Akzentfarbe (auf html, damit er auch auf iOS die ganze Fläche füllt) */
+html { min-height: 100%; background-color: var(--bg);
+  background-image:
+    radial-gradient(120% 55% at 0% 0%, color-mix(in srgb, var(--accent) 42%, var(--bg)) 0%, transparent 60%),
+    radial-gradient(110% 50% at 100% 100%, color-mix(in srgb, var(--accent-2, var(--accent)) 32%, var(--bg)) 0%, transparent 62%),
+    linear-gradient(160deg, color-mix(in srgb, var(--accent) 20%, var(--bg)), var(--bg) 70%);
+  background-repeat: no-repeat; background-attachment: fixed; background-size: 100% 100%; }
+body { background: transparent; min-height: 100dvh; }
+.codeblock { margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--surface-2); }
+.codeblock .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.codeblock pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; font: 12px/1.4 ui-monospace, monospace; user-select: all; }

@@ -8,6 +8,7 @@
  *   favorites/{pid}            {ids: {rezeptId: true}}
  *   days/{pid}__{datum}        Tageswerte (eingefrorenes Ziel), Mahlzeiten, Sport, Radar-Entscheidungen
  *   weights/{pid}              {entries: {datum: {kg, note}}}
+ *   health/{pid}               Eingang für Apple Health (Kurzbefehl → Edge Function): {entries: {schlüssel: {type: weight|workout, date, kg | kcal, minutes, name}}}
  *   shopping/{datum}__{scope}  Nutzerzustand der Einkaufsliste (abgehakt, vorhanden, eigene Posten)
  *   settings/sport             eigene Sportarten und Verbrauchswerte je Person
  *
@@ -31,7 +32,7 @@
   const slotForCategory = (c, hour = 18) => (normCat(c) === "main" ? (hour < 15 ? "mittag" : "abend") : normCat(c));
   const OPEN = ["vorgemerkt", "geplant", "gekocht"];
   const SPORT_KINDS = [["kraft", "Krafttraining"], ["laufen", "Laufen"], ["rad", "Radfahren"], ["schwimmen", "Schwimmen"], ["golf", "Golf"], ["sonstiges", "Sonstiges"]];
-  const COLLECTIONS = ["profiles", "foods", "recipes", "favorites", "days", "weights", "shopping", "settings", "imports"];
+  const COLLECTIONS = ["profiles", "foods", "recipes", "favorites", "days", "weights", "shopping", "settings", "imports", "health"];
   const DEFAULT_PROFILES = {
     p1: { name: "Profil 1", sex: "m", ageYears: 37, birthDate: null, heightCm: null, pal: 1.5, goalMode: "halten", deficitKcal: 500, goalKcalManual: null, targetWeightKg: null, sportCreditPct: 100, dislikes: "", likes: "" },
     p2: { name: "Profil 2", sex: "w", ageYears: 35, birthDate: null, heightCm: null, pal: 1.5, goalMode: "halten", deficitKcal: 500, goalKcalManual: null, targetWeightKg: null, sportCreditPct: 100, dislikes: "", likes: "" },
@@ -529,6 +530,28 @@
       const w = clone(S.weights[pid] || { entries: {} }); w.entries[date] = null; S.weights[pid] = w;
       await refreshDaySnapshots(pid);
     }
+    // ------------------------------------------------------------------ Apple Health (Eingang)
+    const HK_KIND = [[/kraft|strength|functional/i, "kraft"], [/lauf|run|walk|geh/i, "laufen"], [/rad|cycl|bike/i, "rad"], [/schwimm|swim/i, "schwimmen"], [/golf/i, "golf"]];
+    const hkOpen = (pid) => live((S.health[pid] || {}).entries);
+    let hkBusy = false;
+    /** Übernimmt eingegangene Health-Werte über die normalen Wege: Gewicht nur 20–300 kg, Sport nur mit Verbrauchswert (kcal > 0). */
+    async function importHealth(pid) {
+      if (hkBusy) return 0;
+      hkBusy = true; let n = 0;
+      try {
+        for (const [key, e] of hkOpen(pid)) {
+          const okDate = /^\d{4}-\d{2}-\d{2}$/.test(e.date || "");
+          if (okDate && e.type === "weight" && Number(e.kg) >= 20 && Number(e.kg) <= 300) { await upsertWeight(pid, e.date, Math.round(Number(e.kg) * 10) / 10, "Apple Health"); n++; }
+          else if (okDate && e.type === "workout" && Number(e.kcal) > 0) {
+            const kind = (HK_KIND.find(([re]) => re.test(e.name || "")) || [null, "sonstiges"])[1];
+            await addActivity(pid, e.date, { id: "hk" + key, kind, minutes: Math.max(0, Number(e.minutes) || 0), kcal: Number(e.kcal) }); n++;
+          }
+          await patch("health/" + pid, { entries: {} }, { entries: { [key]: null } }); // gültig oder unbrauchbar: aus dem Eingang nehmen
+        }
+      } finally { hkBusy = false; }
+      return n;
+    }
+
     function weights(pid) {
       const entries = weightEntries(pid);
       const trend = L.weightTrend(entries.map((e) => e.kg));
@@ -572,7 +595,7 @@
       foodList, foodMap, recipes, recipe, saveRecipe, deleteRecipe, findDuplicates, toggleFavorite, favSet,
       sportKinds, sportRates, setSportRate, addSportKind, addActivity, deleteActivity, activities,
       radarStack, radarFavCount, radarReset, radarDraw, radarDecide, radarLists, shopping, shoppingSet, shoppingReset, shoppingAdd, shoppingRemove,
-      historyDays, weights, upsertWeight, deleteWeight, saveFood, saveImport,
+      importHealth, hkOpen, historyDays, weights, upsertWeight, deleteWeight, saveFood, saveImport,
     };
   }
 

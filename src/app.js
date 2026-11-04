@@ -82,7 +82,7 @@
     if (!store || ui.status !== "ok") { app.innerHTML = header(false) + bootState(); return; }
     if (window.FR_PROFILE && ui.pid !== window.FR_PROFILE) { ui.pid = window.FR_PROFILE; LS.set("pid", ui.pid); }
     if (!store.profile(ui.pid)) ui.pid = (store.profiles()[0] || {}).id || "p1";
-    const views = { heute: vHeute, radar: vRadar, rezepte: vRezepte, einkauf: vEinkauf, mehr: vMehr, historie: vHistorie, rueckblick: vRueckblick, gewicht: vGewicht, profil: vProfil };
+    const views = { heute: vHeute, radar: vRadar, rezepte: vRezepte, einkauf: vEinkauf, mehr: vMehr, historie: vHistorie, rueckblick: vRueckblick, health: vHealth, gewicht: vGewicht, profil: vProfil };
     const html = header(ui.view === "heute" && ui.hmode !== "woche") + (ui.readOnly ? `<div class="notice">Nur Ansicht: Du kannst diese Seite lesen, aber nichts ändern.</div>` : "") + (views[ui.view] || vHeute)();
     // Unveränderte Ansicht nicht neu aufbauen: ein Neuzeichnen zwischen Berühren und Loslassen verschluckt auf dem iPhone den Tipp
     if (html !== ui.lastHtml || app.dataset.v !== ui.view) { app.innerHTML = html; ui.lastHtml = html; app.dataset.v = ui.view; bindSwipe(); }
@@ -143,7 +143,7 @@
   }
   let toastTimer = null;
   // Keine Bestätigungs-Popups: nur Fehler, Warnungen und die zwei Hinweise, die sonst fehlen würden
-  const TOAST_OK = /^(Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|„.*“ gelöscht)/;
+  const TOAST_OK = /^(Kopiert|\d+ Werte? aus Apple|Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|„.*“ gelöscht)/;
   function toast(text, undo) { if (!TOAST_OK.test(String(text))) return; ui.toast = { text, undo }; renderToast(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { ui.toast = null; renderToast(); }, undo ? 6000 : 3000); }
 
   // ================================================================== Gemeinsame Bausteine
@@ -627,7 +627,7 @@ Regeln:
             ${open.length ? `<button class="btn" data-act="shopShare">Offene Posten teilen / kopieren (z. B. für Bring!)</button>` : ""}
       <form class="fgrid three" data-submit="shopAdd"><input id="shop-n" placeholder="Eigener Posten" aria-label="Eigener Posten" required class="full">
         <input id="shop-a" inputmode="decimal" placeholder="Menge" aria-label="Menge"><input id="shop-u" placeholder="Einheit" aria-label="Einheit"><button class="btn">${ic("plus", 16)} Hinzufügen</button></form>
-      <div class="note">Gleiche Zutaten werden über alle Gerichte addiert, wenn die Einheiten zusammenpassen (g/kg, ml/l/EL/TL). Andere Einheiten bleiben getrennte Posten.</div></section>`;
+      <div class="note">Gleiche Zutaten werden über alle Gerichte addiert, wenn die Einheiten zusammenpassen (g/kg, ml/l/EL/TL). Andere Einheiten bleiben getrennte Posten.</div>${ps.length > 1 ? `<div class="note">Die Liste ist live geteilt: Abhaken und Änderungen der anderen Person erscheinen nach wenigen Sekunden.</div>` : ""}</section>`;
   }
 
   // ================================================================== Mehr, Historie, Gewicht
@@ -642,6 +642,7 @@ Regeln:
       ${curHex ? `<button class="btn sm ghost" data-act="accentReset" style="align-self:flex-start">Zurück zum Standard</button>` : ""}</details>`;
     return `<h2>Mehr</h2><div class="eyebrow">Auswertung</div><div class="more">
       <button data-act="view" data-v="rueckblick">${ic("radar")}<span>Wochenrückblick<br><span class="note">Die letzten 7 Tage auf einen Blick</span></span></button>
+      <button data-act="view" data-v="health">${ic("check")}<span>Apple Health<br><span class="note">Workouts und Waage per Kurzbefehl</span></span></button>
       <button data-act="view" data-v="historie">${ic("cal")}<span>Historie und Statistik<br><span class="note">Kalender, Wochen und Monate</span></span></button>
       <button data-act="view" data-v="gewicht">${ic("scale")}<span>Gewicht<br><span class="note">Verlauf, Trend und Ziel</span></span></button></div>
       <div class="eyebrow">Einstellungen</div><div class="more">
@@ -675,6 +676,23 @@ Regeln:
       <section class="card"><h3>Kalorien pro Tag</h3>${histChart(days)}<div class="note">Balken = gegessen, Linie = Budget (Ziel + Sport). Grau = Tag nicht als vollständig markiert.</div></section>
       ${cal}
       <div class="note">Ein Tag zählt erst, wenn du ihn unter „Ausgewählt“ als vollständig erfasst markierst und alle gegessenen Mahlzeiten einen Kalorienwert haben. Tage ohne Einträge werden weder als Erfolg noch als Misserfolg gewertet.</div>`;
+  }
+
+  const HEALTH_URL = () => `${(window.FR_CONFIG && window.FR_CONFIG.url) || "https://DEIN-PROJEKT.supabase.co"}/functions/v1/health-import`;
+  function vHealth() {
+    const pid = ui.pid;
+    const code = (label, text) => `<div class="codeblock"><div class="row"><b>${label}</b><button class="btn sm" data-act="copyText" data-text="${esc(text)}">Kopieren</button></div><pre>${esc(text)}</pre></div>`;
+    const ex = JSON.stringify({ profile: pid, weightKg: 80.4, workouts: [{ name: "Laufen", kcal: 350, minutes: 30 }] }, null, 2);
+    const open = store.hkOpen(pid).length;
+    return `<div class="toprow"><button class="btn sm" data-act="view" data-v="mehr">${ic("left", 16)} Mehr</button></div>
+      <section class="card"><h2>Apple Health</h2>
+        <div class="sub">Der iPhone-Kurzbefehl schickt Gewicht und Workouts an Foody. Die App übernimmt sie beim Öffnen${open ? ` (jetzt ${open} wartend)` : ""}.</div>
+        <div class="note">Übernommen wird nur, was einen echten Wert hat: Gewicht zwischen 20 und 300 kg, Workouts nur mit Kalorienwert. Foody schätzt nichts.</div></section>
+      <section class="card"><h3>1. Einmalig: Geheimwort setzen</h3><div class="note">In Supabase unter Edge Functions → Secrets ein Secret <b>HEALTH_KEY</b> mit einem selbst gewählten langen Wort anlegen.</div></section>
+      <section class="card"><h3>2. Kurzbefehl bauen</h3>
+        <div class="note">Kurzbefehle → Automation → Persönlich: „Tageszeit“ (z. B. 21:00) oder „Workout beenden“. Aktionen: „Health-Werte suchen“ (Gewicht bzw. Workouts), danach „Inhalte von URL abrufen“ mit diesen Angaben:</div>
+        ${code("URL (Methode POST)", HEALTH_URL())}${code("Header", "x-health-key: <dein Geheimwort>")}${code("Anfragetext (JSON)", ex)}
+        <div class="note">Werte (80.4, 350, 30) durch die Health-Variablen ersetzen. Datum ist optional ("date": "JJJJ-MM-TT"), sonst gilt heute.</div></section>`;
   }
 
   function vRueckblick() {
@@ -1043,6 +1061,7 @@ Regeln:
       const p = Math.max(0.5, Math.round((m.portions + Number(t.dataset.d)) * 4) / 4);
       if (p !== m.portions) await store.updateMeal(ui.pid, ui.date, m.id, { portions: p });
     }),
+    copyText: async (t) => { try { await navigator.clipboard.writeText(t.dataset.text); toast("Kopiert"); } catch (e) { toast("Kopieren nicht möglich in dieser Ansicht."); } },
     rbShift: (t) => { const e = L.addDays(ui.rbEnd || today(), Number(t.dataset.n)); ui.rbEnd = e >= today() ? null : e; schedule(); },
     hmode: (t) => { ui.hmode = t.dataset.v; LS.set("hmode", ui.hmode); schedule(); },
     weekShift: (t) => { ui.date = L.addDays(ui.date, 7 * Number(t.dataset.n)); schedule(); },
@@ -1389,6 +1408,7 @@ Regeln:
         ui.status = Object.keys(S.profiles).length ? "ok" : "leer";
         if (ui.status === "ok" && ui.view === "radar") ensureDrawn();
       } else if (ui.status === "leer" && Object.keys(S.profiles).length) ui.status = "ok";
+      if (ui.status === "ok" && S.ready.health && S.ready.weights && S.ready.days) for (const pr of visibleProfiles()) if (store.hkOpen(pr.id).length) store.importHealth(pr.id).then((n) => n && toast(n + " Wert" + (n === 1 ? "" : "e") + " aus Apple Health übernommen")).catch((e) => console.error(e));
       schedule();
     });
     store.subscribe();

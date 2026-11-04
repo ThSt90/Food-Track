@@ -36,6 +36,7 @@ def main() -> None:
     backend = (SRC / "backend.js").read_text(encoding="utf-8")
     body = html.replace("<main id=\"app\"", "<script>\n" + backend + "\n</script>\n<main id=\"app\"", 1)
     (docs / "index.html").write_text(head + body + "</body></html>", encoding="utf-8")
+    (docs / "sw.js").write_text((SRC / "sw.js").read_text(encoding="utf-8"), encoding="utf-8")
     print(f"docs/index.html geschrieben ({(docs / 'index.html').stat().st_size // 1024} KB)")
 
 
