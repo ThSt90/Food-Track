@@ -458,7 +458,7 @@ body { background: transparent; min-height: 100dvh; }
 .meal[data-mid] { touch-action: pan-y; } .meal.swipe-del { background: var(--bad-soft); border-color: var(--bad); }
 
 </style>
-<script>window.FR_BUILD="04.11. 22:05";</script>
+<script>window.FR_BUILD="04.11. 22:11";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2154,7 +2154,7 @@ body { background: transparent; min-height: 100dvh; }
   }
   let toastTimer = null;
   // Keine Bestätigungs-Popups: nur Fehler, Warnungen und die zwei Hinweise, die sonst fehlen würden
-  const TOAST_OK = /^(Kopiert|\d+ Werte? aus Apple|Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|\d+ Mahlzeit|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|Match|„.*“ gelöscht)/;
+  const TOAST_OK = /^(Kopiert|\d+ Werte? aus Apple|Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|\d+ Mahlzeit|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|Match|Einkaufsliste|Nichts zurückzusetzen|„.*“ gelöscht)/;
   function toast(text, undo) { if (!TOAST_OK.test(String(text))) return; ui.toast = { text, undo }; renderToast(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { ui.toast = null; renderToast(); }, undo ? 6000 : 3000); }
 
   // ================================================================== Gemeinsame Bausteine
@@ -3413,7 +3413,7 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
       const k = t.dataset.k, v = t.dataset.v === "" ? null : k === "maxMinutes" ? Number(t.dataset.v) : t.dataset.v;
       ui.radar = { ...ui.radar, [k]: ui.radar[k] === v ? null : v }; LS.set("radar", ui.radar); ensureDrawn(); schedule();
     },
-    shopResetAll: () => run("shop", async () => { await store.shoppingReset(shopDate(), ui.scope === "alle" || store.profiles().some((p) => p.id === ui.scope) ? ui.scope : "alle"); ui.showDone = false; toast("Einkaufsliste zurückgesetzt"); }),
+    shopResetAll: () => run("shop", async () => { const sc = ui.scope === "alle" || store.profiles().some((p) => p.id === ui.scope) ? ui.scope : "alle"; const had = !!(store.S.shopping || {})[`${shopDate()}__${sc}`]; await store.shoppingReset(shopDate(), sc); ui.showDone = false; toast(had ? "Einkaufsliste zurückgesetzt: Häkchen, geänderte Mengen und eigene Einträge entfernt" : "Nichts zurückzusetzen"); }),
     later: (rid) => { ui.later = ui.later.filter((x) => x !== rid).concat(rid); ui.lastDecision = null; schedule(); },
     resetDeck: () => run("draw", async () => { ui.radar = { ...ui.radar, stage: "alle" }; LS.set("radar", ui.radar); ui.lastDecision = null; ui.later = []; await store.radarReset(ui.pid, ui.date, ui.radar); schedule(); }),
     toggleExtras: () => { ui.open.has("extras") ? ui.open.delete("extras") : ui.open.add("extras"); LS.set("extras", ui.open.has("extras")); schedule(); },
