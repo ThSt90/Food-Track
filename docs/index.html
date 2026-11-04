@@ -464,7 +464,7 @@ body { background: transparent; min-height: 100dvh; }
 .pal-acts { display: grid; gap: 8px; } .pal-acts:empty { display: none; } .pal-acts .btn { width: 100%; height: 44px; min-height: 44px; box-sizing: border-box; border-radius: 12px; font-size: 14px; }
 
 </style>
-<script>window.FR_BUILD="04.11. 22:14";</script>
+<script>window.FR_BUILD="04.11. 22:15";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2650,13 +2650,13 @@ Regeln:
       ${saved.length ? `<div class="pal-sub">Meine Farben</div><div class="swatches">${saved.map((c) => `<button class="sw-c" role="radio" aria-checked="${curHex === String(c.hex).toLowerCase()}" aria-label="Eigene Farbe" data-act="accent" data-hex="${esc(c.hex)}" style="--c:${esc(c.hex)}"></button>`).join("")}</div>` : ""}
       <label class="pal-new"><span>Neue Farbe</span><input type="color" id="accent-custom" data-change="accentCustom" value="${esc(ui.pendingHex || curHex || "#8fb39b")}" aria-label="Neue Farbe wählen"></label>
       <div class="pal-acts">${ui.pendingHex ? `<button class="btn" data-act="accentSave">Farbe in „Meine Farben“ speichern</button>` : ""}${savedHere ? `<button class="btn ghost" data-act="accentDel">Diese gespeicherte Farbe entfernen</button>` : ""}${curHex ? `<button class="btn ghost" data-act="accentReset">Zurück zum Standard</button>` : ""}</div></section>`;
-    return `<h2>Mehr</h2><div class="eyebrow">Auswertung</div><div class="more">
+    return `<h2>Mehr</h2><div class="eyebrow">Einstellungen</div><div class="more">
+      <button data-act="view" data-v="profil">${ic("user")}<span>Profile und Einstellungen<br><span class="note">Kalorienbedarf, Sportwerte, Lebensmittel, Datensicherung</span></span></button></div>
+      <div class="eyebrow">Auswertung</div><div class="more">
       <button data-act="view" data-v="rueckblick">${ic("radar")}<span>Wochenrückblick<br><span class="note">Die letzten 7 Tage auf einen Blick</span></span></button>
       <button data-act="view" data-v="health">${ic("check")}<span>Apple Health<br><span class="note">Workouts und Waage per Kurzbefehl</span></span></button>
       <button data-act="view" data-v="historie">${ic("cal")}<span>Historie und Statistik<br><span class="note">Kalender, Wochen und Monate</span></span></button>
       <button data-act="view" data-v="gewicht">${ic("scale")}<span>Gewicht<br><span class="note">Verlauf, Trend und Ziel</span></span></button></div>
-      <div class="eyebrow">Einstellungen</div><div class="more">
-      <button data-act="view" data-v="profil">${ic("user")}<span>Profile und Einstellungen<br><span class="note">Kalorienbedarf, Sportwerte, Lebensmittel, Datensicherung</span></span></button></div>
       <div class="eyebrow">Darstellung</div><div class="more"><button data-act="theme" aria-pressed="${themeIsDark()}"><span>${themeIsDark() ? "☀︎" : "☾"}</span><span>Hell / Dunkel<br><span class="note">Jetzt: ${themeIsDark() ? "dunkel – tippen für hell" : "hell – tippen für dunkel"}</span></span></button></div>${palette}`;
   }
 
