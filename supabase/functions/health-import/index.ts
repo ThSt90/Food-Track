@@ -7,8 +7,8 @@ const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: 
 const same = (a: string, b: string) => { if (a.length !== b.length || !b) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; };
 const berlinToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date());
 const num = (v: unknown) => Number(String(v ?? "").replace(",", "."));
-// Kurzbefehle liefern Zahlen oft als Text ("1.234,5 kcal"): Einheit weg, deutsches Zahlenformat lesen
-const numK = (v: unknown) => { let t = String(v ?? "").replace(/[^0-9.,]/g, ""); if (t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, ""); return Number(t); };
+// Echte Zahlen bleiben unverändert (2.908 = 2,908). Text wie "1.234,5 kcal": Einheit weg, Komma = Dezimaltrenner
+const numK = (v: unknown) => { if (typeof v === "number") return v; let t = String(v ?? "").replace(/[^0-9.,]/g, ""); if (t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); return Number(t); };
 const isDate = (s: unknown) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const clean = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "").slice(0, 40);
 
