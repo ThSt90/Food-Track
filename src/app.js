@@ -241,7 +241,7 @@
     // Sport
     extra += `<section class="slot"><div class="slot-head"><h3>Sport</h3><button class="btn sm" data-act="addSport">${ic("plus", 16)} Aktivität</button></div>
       <button class="toggle" data-act="flag" data-flag="sportDone" aria-pressed="${st.sportDone}"><span><b>Sport gemacht</b><br><span class="note">Nur Dokumentation – bringt allein keine Kalorien.</span></span><span class="sw"></span></button>
-      ${d.activities.map((a) => `<div class="minilist"><div><span><b>${esc(a.kindName)}</b> · ${de(a.minutes)} Min${a.intensity ? " · " + esc(a.intensity) : ""}<br><span class="note">${a.kcal ? `${de(a.kcal)} kcal · ${esc(a.kcalSource)}` : "kein Verbrauchswert – nicht angerechnet"}</span></span>
+      ${d.activities.map((a) => `<div class="minilist"><div><span><b>${esc(a.kindName)}</b>${a.minutes ? " · " + de(a.minutes) + " Min" : ""}${a.intensity ? " · " + esc(a.intensity) : ""}<br><span class="note">${a.kcal ? `${de(a.kcal)} kcal · ${esc(a.kcalSource)}` : "kein Verbrauchswert – nicht angerechnet"}</span></span>
         <button class="btn sm ghost" data-act="delSport" data-id="${a.id}" aria-label="Aktivität entfernen">${ic("trash", 16)}</button></div></div>`).join("")}
       ${d.activities.length && st.sportCreditPct < 100 ? `<div class="note">Angerechnet werden ${st.sportCreditPct} % der Verbrauchswerte (Profileinstellung).</div>` : ""}</section>`;
 

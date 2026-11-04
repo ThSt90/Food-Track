@@ -320,7 +320,7 @@
     async function addActivity(pid, date, o) {
       const id = o.id || newId();
       let kcal = Number(o.kcal) > 0 ? Math.round(Number(o.kcal)) : null, source;
-      if (kcal) source = "eigener Wert (z. B. Uhr)";
+      if (kcal) source = o.source || "eigener Wert (z. B. Uhr)";
       else {
         const rate = sportRates(pid)[o.kind];
         if (rate) { kcal = Math.round((Number(o.minutes) * rate.kcalPerHour) / 60); source = `Durchschnitt ${rate.kcalPerHour} kcal/h`; }
@@ -543,11 +543,11 @@
           const okDate = /^\d{4}-\d{2}-\d{2}$/.test(e.date || "");
           if (okDate && e.type === "weight" && Number(e.kg) >= 20 && Number(e.kg) <= 300) { await upsertWeight(pid, e.date, Math.round(Number(e.kg) * 10) / 10, "Apple Health"); n++; }
           else if (okDate && e.type === "active" && Number(e.kcal) > 0 && Number(e.kcal) < 10000) { // aktive Energie des Tages: eine Einheit je Tag, wird bei jedem Lauf überschrieben
-            await addActivity(pid, e.date, { id: "hkactive" + e.date.replace(/-/g, ""), kind: "sonstiges", minutes: 0, kcal: Number(e.kcal) }); n++;
+            await addActivity(pid, e.date, { id: "hkactive" + e.date.replace(/-/g, ""), kind: "sonstiges", minutes: 0, kcal: Number(e.kcal), source: "Apple Health (aktive Energie)" }); n++;
           }
           else if (okDate && e.type === "workout" && Number(e.kcal) > 0) {
             const kind = (HK_KIND.find(([re]) => re.test(e.name || "")) || [null, "sonstiges"])[1];
-            await addActivity(pid, e.date, { id: "hk" + key, kind, minutes: Math.max(0, Number(e.minutes) || 0), kcal: Number(e.kcal) }); n++;
+            await addActivity(pid, e.date, { id: "hk" + key, kind, minutes: Math.max(0, Number(e.minutes) || 0), kcal: Number(e.kcal), source: "Apple Health" }); n++;
           }
           await patch("health/" + pid, { entries: {} }, { entries: { [key]: null } }); // gültig oder unbrauchbar: aus dem Eingang nehmen
         }
