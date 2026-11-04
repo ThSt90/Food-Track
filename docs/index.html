@@ -350,7 +350,6 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
 
 .cat-h{margin:18px 0 8px;font-size:15px;display:flex;gap:8px;align-items:center}.cat-n{font-size:12px;color:var(--muted,#888);font-weight:500}
 
-.guck{font-size:22px;font-weight:700;color:var(--accent-text);text-align:center;margin-bottom:6px}
 
 /* UX-Überarbeitung */
 .al { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -2200,7 +2199,7 @@ body { background: transparent; min-height: 100dvh; }
     if (!f.meal) {
       const rs = store.recipes(ui.pid), nM = rs.filter((r) => r.category !== "fruehstueck").length, nF = rs.filter((r) => r.category === "fruehstueck").length;
       const card = (v, emoji, title, n, cls) => `<button class="pick ${cls}" data-act="pickMeal" data-v="${v}"><span class="pe" aria-hidden="true">${emoji}</span><span class="pt"><b>${title}</b><small>${n} ${n === 1 ? "Rezept" : "Rezepte"}</small></span><span class="pa" aria-hidden="true">${ic("right", 20)}</span></button>`;
-      return `<div class="chooser"><div class="guck" aria-hidden="true">N' Guck Guck 👀</div><h2>Was suchst du?</h2>
+      return `<div class="chooser"><h2>Was suchst du?</h2>
         ${card("main", "🍽️", "Mittag / Abendessen", nM, "main")}${card("fruehstueck", "🥐", "Frühstück", nF, "")}</div>`;
     }
     let stack = store.radarStack(ui.pid, ui.date, f);
