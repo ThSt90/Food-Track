@@ -233,13 +233,13 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.4; }
 input[type="range"] { padding: 0; min-height: 28px; accent-color: var(--accent); background: transparent; border: 0; }
 input[type="checkbox"] { width: 22px; height: 22px; min-height: 0; accent-color: var(--accent); }
 .unsure { border-color: var(--hot-1) !important; box-shadow: 0 0 0 1px var(--hot-1); }
-.fgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.fgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; align-items: end; }
 .fgrid.three { grid-template-columns: repeat(3, 1fr); }
 .fgrid .full { grid-column: 1 / -1; }
 .ingrow { display: grid; grid-template-columns: 64px 70px 1fr 34px; gap: 6px; align-items: center; }
 .ingrow select { grid-column: 1 / -2; min-height: 36px; padding: 4px 8px; font-size: 13px; }
 .ingrow + .ingrow { border-top: 1px solid var(--line); padding-top: 8px; }
-.formula { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; background: var(--surface-2); border-radius: 12px; padding: 10px 12px; overflow-x: auto; white-space: pre; }
+.formula { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; background: var(--surface-2); border-radius: 12px; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .crop { position: relative; border-radius: 12px; overflow: hidden; background: var(--surface-2); }
 .crop canvas { display: block; width: 100%; height: auto; }
 
@@ -715,12 +715,12 @@ body { background: transparent; min-height: 100dvh; }
   // ======================================================================= Energiebedarf
   // PAL nach DGE: beschreibt den Alltag OHNE geplanten Sport. Sport wird separat angerechnet.
   const PAL_LEVELS = [
-    [1.4, "Bürojob, überwiegend sitzend, wenig Bewegung"],
-    [1.5, "Bürojob, überwiegend sitzend, moderate Alltagsbewegung"],
-    [1.6, "Sitzend, zeitweise gehend oder stehend"],
-    [1.7, "Sitzend, oft gehend oder stehend"],
-    [1.8, "Überwiegend gehend oder stehend"],
-    [1.9, "Überwiegend gehend oder stehend, körperlich fordernd"],
+    [1.4, "Büro, wenig Bewegung"],
+    [1.5, "Büro, moderate Bewegung"],
+    [1.6, "Sitzend, zeitweise gehend"],
+    [1.7, "Sitzend, oft gehend/stehend"],
+    [1.8, "Überwiegend gehend/stehend"],
+    [1.9, "Gehend/stehend, körperlich fordernd"],
   ];
 
   function ageOn(birthDate, ageYears, onISO) {
@@ -2650,7 +2650,6 @@ Regeln:
   // ================================================================== Profil & Einstellungen
   function vProfil() {
     const p = store.profile(ui.pid), e = store.energyFor(ui.pid, today()), w = store.currentWeight(ui.pid);
-    const rates = store.sportRates(ui.pid);
     const v = (x) => (x == null ? "" : esc(x));
     const formula = e && e.bmr != null
       ? `Grundumsatz (Mifflin-St. Jeor):\n10 × ${de(w, 1)} kg + 6,25 × ${de(p.heightCm)} cm − 5 × ${e.age} J. ${p.sex === "m" ? "+ 5" : "− 161"} = ${de(e.bmr)} kcal\nGesamtbedarf: ${de(e.bmr)} × PAL ${de(p.pal, 2)} = ${de(e.tdee)} kcal\nTagesziel: ${e.goal == null ? "–" : de(e.goal) + " kcal"} (${e.goalSource || "–"})`
@@ -2661,28 +2660,24 @@ Regeln:
           <div class="stat"><b>${e && e.tdee != null ? de(e.tdee) : "–"}</b><span>Gesamtbedarf kcal</span></div><div class="stat"><b class="pos">${e && e.goal != null ? de(e.goal) : "–"}</b><span>Tagesziel kcal</span></div></div>
         <div class="formula">${esc(formula)}</div>
         ${e && e.warnings.length ? `<div class="notice">${esc(e.warnings.join(" "))}</div>` : ""}
-        <div class="note">Bedarf = Schätzung, was du verbrauchst. Ziel = was du essen willst. Der PAL beschreibt deinen Alltag ohne geplanten Sport (DGE). Sport kommt nur mit echtem Verbrauchswert dazu – so wird Bewegung nicht doppelt gezählt.</div></section>
+        <div class="note">Bedarf = Schätzung, was du verbrauchst. Ziel = was du essen willst. Der PAL beschreibt deinen Alltag (DGE). Sport und Bewegung kommen über Apple Health.</div></section>
       <form class="card" data-submit="profile"><h3>Angaben</h3><div class="fgrid">
         <label class="f full">Name<input id="p-name" value="${v(p.name)}" required></label>
-        <label class="f">Geschlecht (für die Formel)<select id="p-sex"><option value="m" ${p.sex === "m" ? "selected" : ""}>männlich</option><option value="w" ${p.sex === "w" ? "selected" : ""}>weiblich</option></select></label>
+        <label class="f">Geschlecht<select id="p-sex"><option value="m" ${p.sex === "m" ? "selected" : ""}>männlich</option><option value="w" ${p.sex === "w" ? "selected" : ""}>weiblich</option></select></label>
         <label class="f">Geburtsdatum<input id="p-birth" type="date" value="${v(p.birthDate)}"></label>
         <label class="f">Alter (falls kein Datum)<input id="p-age" type="number" inputmode="numeric" min="14" max="100" value="${v(p.ageYears)}"></label>
         <label class="f">Größe (cm)<input id="p-height" type="number" inputmode="numeric" min="120" max="230" value="${v(p.heightCm)}" placeholder="z. B. 180"></label>
         <label class="f">Aktuelles Gewicht (kg)<input id="p-weight" type="number" inputmode="decimal" step="0.1" min="25" max="350" value="${v(w)}" placeholder="z. B. 80"></label>
         <label class="f">Zielgewicht (kg)<input id="p-target" type="number" inputmode="decimal" step="0.1" value="${v(p.targetWeightKg)}"></label>
         <label class="f full">Aktivität im Alltag (ohne Sport)<select id="p-pal">${L.PAL_LEVELS.map(([x, t]) => `<option value="${x}" ${Number(p.pal) === x ? "selected" : ""}>${de(x, 1)} – ${t}</option>`).join("")}</select></label>
-        <label class="f">Ziel<select id="p-mode"><option value="halten" ${p.goalMode === "halten" ? "selected" : ""}>Gewicht halten</option><option value="abnehmen" ${p.goalMode === "abnehmen" ? "selected" : ""}>Abnehmen</option><option value="manuell" ${p.goalMode === "manuell" ? "selected" : ""}>Tagesziel selbst festlegen</option></select></label>
-        <label class="f">Defizit beim Abnehmen (kcal/Tag)<input id="p-deficit" type="number" inputmode="numeric" min="0" max="1500" step="50" value="${v(p.deficitKcal)}"></label>
+        <label class="f full">Ziel<select id="p-mode"><option value="halten" ${p.goalMode === "halten" ? "selected" : ""}>Gewicht halten</option><option value="abnehmen" ${p.goalMode === "abnehmen" ? "selected" : ""}>Abnehmen</option><option value="manuell" ${p.goalMode === "manuell" ? "selected" : ""}>Tagesziel selbst festlegen</option></select></label>
+        <label class="f">Defizit (kcal/Tag)<input id="p-deficit" type="number" inputmode="numeric" min="0" max="1500" step="50" value="${v(p.deficitKcal)}"></label>
         <label class="f">Eigenes Tagesziel (kcal)<input id="p-manual" type="number" inputmode="numeric" min="800" max="6000" value="${v(p.goalKcalManual)}"></label>
-        <label class="f">Sport anrechnen<select id="p-sport">${[[100, "100 % der Verbrauchswerte"], [50, "50 % (vorsichtig)"], [0, "gar nicht, nur dokumentieren"]].map(([x, t]) => `<option value="${x}" ${Number(p.sportCreditPct) === x ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <input type="hidden" id="p-sport" value="${Number.isFinite(Number(p.sportCreditPct)) ? Number(p.sportCreditPct) : 100}">
         <label class="f full">Mag ich (Merkmale, Komma)<input id="p-likes" value="${v(p.likes)}" placeholder="proteinreich, vegetarisch"></label>
         <label class="f full">Mag ich nicht (Zutaten, Komma)<input id="p-dislikes" value="${v(p.dislikes)}" placeholder="Pilze, Koriander"></label></div>
         <div class="note">Rund 500 kcal Defizit pro Tag entsprechen grob 0,5 kg pro Woche (Faustregel 7.700 kcal je kg Fett). Änderungen gelten ab heute; vergangene Tage behalten ihr damaliges Ziel.</div>
         <button class="btn primary">Profil speichern</button></form>
-      <section class="card"><h3>Sport: eigene Verbrauchswerte</h3><div class="note">Trage hier deine Durchschnittswerte ein (kcal pro Stunde, z. B. von deiner Uhr). Aktivitäten ohne Wert werden nicht angerechnet; bereits erfasste Einheiten ohne Wert bekommen den neuen Durchschnitt.</div>
-        <form data-submit="rates" class="fgrid">${store.sportKinds().map((k) => `<label class="f">${esc(k.name)} (kcal/h)<input id="rate-${k.id}" data-kind="${k.id}" type="number" inputmode="numeric" min="0" max="2000" value="${rates[k.id] ? rates[k.id].kcalPerHour : ""}" placeholder="kein Wert"></label>`).join("")}
-          <button class="btn full">Werte speichern</button></form>
-        <form data-submit="kind" class="search"><input id="kind-name" placeholder="Weitere Sportart" required aria-label="Weitere Sportart"><button class="btn">Hinzufügen</button></form></section>
       <section class="card"><div class="row" style="align-items:center"><h3>Lebensmittel (je 100 g)</h3><button class="btn sm" data-act="foodEdit" data-id="">${ic("plus", 16)} Neu</button></div>
         <div class="note">Grundlage für „aus Zutaten berechnet“. Startwerte aus USDA FoodData Central (SR Legacy) – prüfe und korrigiere sie bei Bedarf.</div>
         <div class="scroll"><table class="tbl"><thead><tr><th>Name</th><th class="r">kcal</th><th class="r">P</th><th class="r">KH</th><th class="r">F</th></tr></thead><tbody>
