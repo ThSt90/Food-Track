@@ -439,7 +439,7 @@ body { background: transparent; min-height: 100dvh; }
 .dsthumb { width: 44px; height: 44px; object-fit: cover; border-radius: 10px; flex: none; }
 
 </style>
-<script>window.FR_BUILD="04.11. 18:01";</script>
+<script>window.FR_BUILD="04.11. 18:11";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2845,22 +2845,7 @@ Regeln:
       <div class="minilist">${X.SLOTS.filter(([k]) => k !== "fruehstueck").map(([k, t]) => `<div><span><b>${esc(t)}</b></span><button class="btn primary" data-act="pickSlot" data-slot="${k}">Auswählen</button></div>`).join("")}</div>`;
   }
 
-  function sheetAddMeal() {
-    const s = ui.sheet;
-    const q = L.norm(s.q || "");
-    const rs = store.recipes(ui.pid).filter((r) => !q || L.norm(r.title).includes(q)).slice(0, 30);
-    return `<div class="filters">${[["beschreiben", "Beschreiben"], ["rezept", "Aus Bibliothek"], ["manuell", "Ohne Rezept"]].map(([k, t]) => `<button class="chip line" data-act="amTab" data-v="${k}" aria-pressed="${s.tab === k}">${t}</button>`).join("")}</div>
-      ${s.tab === "beschreiben" ? sheetDescribe(s) : s.tab === "rezept" ? `<input id="am-q" type="search" placeholder="Rezept suchen" value="${esc(s.q || "")}" data-input="amq" aria-label="Rezept suchen">
-        <div class="minilist">${rs.map((r) => `<div><span><b>${esc(r.title)}</b><br><span class="note">${kcal(r.nut.perPortion.kcal)} kcal je Portion · ${esc(L.QUALITY_LABEL[r.nut.quality])}</span></span>
-          <span class="btns"><button class="btn sm" data-act="amAdd" data-id="${r.id}" data-s="geplant">Planen</button><button class="btn sm primary" data-act="amAdd" data-id="${r.id}" data-s="gegessen">Gegessen</button></span></div>`).join("") || `<div class="note">Keine Rezepte gefunden.</div>`}</div>`
-      : `${window.FR_PHOTO ? `<div class="photoest"><label class="btn full ${s.est && s.est.busy ? "disabled" : ""}">${s.est && s.est.busy ? "Foto wird geschätzt …" : `${ic("plus", 16)} Foto machen oder wählen und schätzen`}<input id="mm-photo" type="file" accept="image/*" hidden data-change="mmPhoto"></label>
-          ${s.est && s.est.error ? `<div class="note">${esc(s.est.error)}</div>` : ""}${s.est && s.est.kcal ? `<div class="note"><b>Geschätzt aus dem Foto</b> (Sicherheit: ${esc(s.est.confidence)}). ${esc(s.est.note)} Bitte prüfen und bei Bedarf Werte oder Portionen anpassen.</div>` : ""}</div>` : ""}
-        <form data-submit="manualMeal" class="fgrid"><label class="f full">Was?<input id="mm-title" required placeholder="z. B. Brezel" value="${esc((s.est && s.est.title) || "")}"></label>
-        <label class="f">kcal je Portion<input id="mm-kcal" type="number" inputmode="decimal" min="0" placeholder="keine Angabe" value="${s.est && s.est.kcal != null ? s.est.kcal : ""}"></label><label class="f">Portionen<input id="mm-p" type="number" inputmode="decimal" min="0.25" step="0.25" value="1"></label>
-        <label class="f">Protein g<input id="mm-protein" type="number" inputmode="decimal" min="0" value="${s.est && s.est.protein != null ? s.est.protein : ""}"></label><label class="f">Kohlenhydrate g<input id="mm-carbs" type="number" inputmode="decimal" min="0" value="${s.est && s.est.carbs != null ? s.est.carbs : ""}"></label><label class="f">Fett g<input id="mm-fat" type="number" inputmode="decimal" min="0" value="${s.est && s.est.fat != null ? s.est.fat : ""}"></label>
-        <label class="f">Status<select id="mm-status"><option value="gegessen">gegessen</option><option value="geplant">geplant</option></select></label>
-        <div class="note full">Ohne Kalorienwert wird nichts angerechnet und der Tag gilt als unvollständig.</div><button class="btn primary full">Eintragen</button></form>`}`;
-  }
+  function sheetAddMeal() { return sheetDescribe(ui.sheet); }
 
   /** Gegessenes in eigenen Worten (getippt oder diktiert): KI zerlegt in Posten und schätzt die Kalorien; Mensch prüft und trägt ein. */
   const aiApi = () => !!(window.FR_TEXT && window.FR_CONFIG && window.FR_CONFIG.ai === "api");
@@ -3047,7 +3032,7 @@ Regeln:
     resnap: (t) => run("meal:" + t.dataset.id, () => store.resnapshotMeal(ui.pid, ui.date, t.dataset.id)),
     mealMenu: (t) => openSheet("mealMenu", { id: t.dataset.id }),
     delMeal: (t) => run("meal:" + t.dataset.id, async () => { await store.deleteMeal(ui.pid, ui.date, t.dataset.id); closeSheet(); toast("Eintrag entfernt"); }),
-    addMeal: (t) => openSheet("addMeal", { slot: t.dataset.slot, tab: "rezept", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }),
+    addMeal: (t) => openSheet("addMeal", { slot: t.dataset.slot, tab: "beschreiben", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }),
     describe: () => { const h = new Date().getHours(); openSheet("addMeal", { slot: h < 11 ? "fruehstueck" : h < 15 ? "mittag" : "abend", tab: "beschreiben", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }); },
     dsQueue: () => run("dsq", async () => {
       const el = document.getElementById("ds-text"), text = el ? el.value : "";
