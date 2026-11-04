@@ -395,3 +395,14 @@ test("Apple Health: Gewicht und Workout mit kcal werden übernommen, Unbrauchbar
   assert.equal(st.hkOpen("p1").length, 0);
   assert.equal(await st.importHealth("p1"), 0);
 });
+
+test("Apple Health: Tagesverbrauch landet im Tag, ändert aber weder Budget noch Sport", async () => {
+  const { db, st } = await ready();
+  const before = st.day("p1", DAY).budget.total;
+  await db.doc("health/p1").set({ entries: { b1: { type: "burn", date: DAY, rest: 2033, active: 239 }, b2: { type: "burn", date: "2026-10-16", rest: 0, active: 0 } } });
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(await st.importHealth("p1"), 1);               // 0/0 wird nicht übernommen
+  const d = st.day("p1", DAY);
+  assert.equal(d.burn.rest, 2033); assert.equal(d.burn.active, 239);
+  assert.equal(d.budget.total, before); assert.equal(d.sport, 0); assert.equal(d.activities.length, 0);
+});

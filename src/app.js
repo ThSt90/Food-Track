@@ -189,6 +189,19 @@
     return `<input id="am-q" type="search" placeholder="Rezept suchen" value="${esc(ui.sheet.q || "")}" data-input="amq" aria-label="Rezept suchen">
       <div class="minilist">${rs.map((r) => `<div><span><b>${esc(r.title)}</b><br><span class="note">${kcal(r.nut.perPortion.kcal)} kcal je Portion</span></span><button class="btn sm primary" data-act="weekPick" data-id="${r.id}">Wählen</button></div>`).join("") || `<div class="note">Keine Rezepte gefunden.</div>`}</div>`;
   }
+  /** Verbrauch (Ruhe + Aktivität, aus Apple Health) gegenüber dem Gegessenen – nur zum Vergleichen, das Tagesbudget bleibt unberührt. */
+  function balanceCard(d) {
+    const bn = d.burn; if (!bn) return "";
+    const total = (bn.rest || 0) + (bn.active || 0), eaten = d.budget.eaten, diff = Math.round(eaten - total);
+    const live = d.date === store.today(), at = bn.at ? new Date(bn.at) : null;
+    const hhmm = at ? String(at.getHours()).padStart(2, "0") + ":" + String(at.getMinutes()).padStart(2, "0") : "";
+    const part = bn.rest == null || bn.active == null;
+    return `<section class="card"><div class="row"><div><h3>Energiebilanz${live ? " bisher" : ""}</h3><div class="sub">Verbrauch laut Apple Health gegenüber gegessen${live && hhmm ? " · Stand " + hhmm : ""}</div></div></div>
+      <div class="stats"><div class="stat"><b>${de(total)}</b><span>verbraucht</span><small class="note">${bn.rest != null ? "Ruhe " + de(bn.rest) : ""}${bn.rest != null && bn.active != null ? " + " : ""}${bn.active != null ? "Aktiv " + de(bn.active) : ""}</small></div>
+        <div class="stat"><b>${de(eaten)}</b><span>gegessen</span>${d.unknown ? `<small class="note">Angaben unvollständig</small>` : ""}</div></div>
+      <div class="notice ${diff <= 0 ? "" : "warn"}"><b>${diff <= 0 ? "Defizit " + de(-diff) : "Überschuss " + de(diff)} kcal</b>${live ? " · der Verbrauch steigt im Lauf des Tages" : ""}${part ? " · nur ein Teil des Verbrauchs vorhanden" : ""}</div></section>`;
+  }
+
   function vTag() {
     const pid = ui.pid, date = ui.date;
     const d = store.day(pid, date), e = store.energyFor(pid, date), b = d.budget, st = d.settings;
@@ -247,7 +260,7 @@
 
     extra += `<button class="toggle" data-act="flag" data-flag="complete" aria-pressed="${st.complete}"><span><b>Tag vollständig erfasst</b><br><span class="note">Nur vollständige Tage zählen in Statistik und Zielerreichung.</span></span><span class="sw"></span></button>`;
     const openX = ui.open.has("extras");
-    return out + `<section class="slot extras"><button class="toggle" data-act="toggleExtras" aria-expanded="${openX}"><span><b>Extras: Kalorien und Sport</b><br><span class="note">${st.goalKcal != null ? `${de(b.eaten)} kcal gegessen · ` : ""}optional, nicht der Fokus</span></span><span>${openX ? "▴" : "▾"}</span></button></section>${openX ? extra : ""}`;
+    return out + balanceCard(d) + `<section class="slot extras"><button class="toggle" data-act="toggleExtras" aria-expanded="${openX}"><span><b>Extras: Kalorien und Sport</b><br><span class="note">${st.goalKcal != null ? `${de(b.eaten)} kcal gegessen · ` : ""}optional, nicht der Fokus</span></span><span>${openX ? "▴" : "▾"}</span></button></section>${openX ? extra : ""}`;
   }
 
   function mealRow(m) {
@@ -682,7 +695,7 @@ Regeln:
   function vHealth() {
     const pid = ui.pid;
     const code = (label, text) => `<div class="codeblock"><div class="row"><b>${label}</b><button class="btn sm" data-act="copyText" data-text="${esc(text)}">Kopieren</button></div><pre>${esc(text)}</pre></div>`;
-    const ex = JSON.stringify({ profile: pid, activeKcal: 480 }, null, 2);
+    const ex = JSON.stringify({ profile: pid, burnRest: 949, burnActive: 30 }, null, 2);
     const open = store.hkOpen(pid).length;
     return `<div class="toprow"><button class="btn sm" data-act="view" data-v="mehr">${ic("left", 16)} Mehr</button></div>
       <section class="card"><h2>Apple Health</h2>
@@ -692,7 +705,7 @@ Regeln:
       <section class="card"><h3>2. Kurzbefehl bauen</h3>
         <div class="note">Kurzbefehle → Automation → Persönlich: „Tageszeit“ (z. B. 21:00) oder „Workout beenden“. Aktionen: „Health-Werte suchen“ (Gewicht bzw. Workouts), danach „Inhalte von URL abrufen“ mit diesen Angaben:</div>
         ${code("URL (Methode POST)", HEALTH_URL())}${code("Header", "x-health-key: <dein Geheimwort>")}${code("Anfragetext (JSON)", ex)}
-        <div class="note">activeKcal ist die aktive Energie von heute (nicht der Gesamtverbrauch, den Ruhe- und Alltagsverbrauch rechnet Foody schon über Grundumsatz und PAL ein). Optional geht auch weightKg (Gewicht) und workouts. Der Wert wird bei jedem Lauf für heute überschrieben. Datum ist optional ("date": "JJJJ-MM-TT"), sonst gilt heute.</div></section>`;
+        <div class="note">burnRest = Ruheenergie von heute, burnActive = Aktivitätsenergie von heute (jeweils die Summe in kcal). Foody zeigt daraus die Energiebilanz „verbraucht gegenüber gegessen“. Das Tagesbudget bleibt unverändert. Die Werte werden bei jedem Lauf für heute überschrieben, ein Datum ist optional ("date": "JJJJ-MM-TT"). Zusätzlich geht auch weightKg (Gewicht).</div></section>`;
   }
 
   function vRueckblick() {
@@ -703,6 +716,8 @@ Regeln:
     const avgK = avg(tracked.map((d) => d.eaten)), avgP = avg(tracked.filter((d) => d.protein != null).map((d) => d.protein));
     const avgG = avg(tracked.filter((d) => d.goal != null).map((d) => d.goal + d.sport));
     const sport = days.reduce((n, d) => n + (d.sport || 0), 0);
+    const bal = days.filter((d) => d.burn && d.burn.rest != null && d.burn.active != null && d.eaten > 0 && d.date < today());
+    const avgBurn = avg(bal.map((d) => d.burn.rest + d.burn.active)), avgBal = bal.length ? Math.round(bal.reduce((n, d) => n + d.eaten - d.burn.rest - d.burn.active, 0) / bal.length) : null;
     const ws = store.weights(ui.pid).entries;
     const inP = ws.filter((e) => e.date >= from && e.date <= end), before = ws.filter((e) => e.date < from).slice(-1)[0];
     const wNow = inP.length ? inP[inP.length - 1].kg : null, wRef = before ? before.kg : inP.length > 1 ? inP[0].kg : null;
@@ -713,6 +728,7 @@ Regeln:
     const tile = (t, v, sub) => `<div class="stat"><b>${v}</b><span>${t}</span>${sub ? `<small class="note">${sub}</small>` : ""}</div>`;
     return `<div class="toprow"><button class="iconbtn" data-act="rbShift" data-n="-7" aria-label="Vorwoche">${ic("left", 18)}</button><div style="text-align:center"><h2 style="margin:0">Wochenrückblick</h2><div class="sub">${esc(fmtDate(from))} – ${esc(fmtDate(end))}</div></div><button class="iconbtn" data-act="rbShift" data-n="7" aria-label="Folgewoche" ${end >= today() ? "disabled" : ""}>${ic("right", 18)}</button></div>
       ${tracked.length ? `<section class="card"><div class="stats">${tile("Ø kcal / Tag", de(avgK), avgG != null ? "Budget Ø " + de(avgG) : "")}${tile("Ø Protein / Tag", avgP != null ? de(avgP) + " g" : "–")}${tile("Tage erfasst", tracked.length + " von 7")}</div>
+        ${avgBurn != null ? `<div class="stats">${tile("Ø verbraucht / Tag", de(avgBurn), "Apple Health, " + bal.length + " Tage")}${tile("Ø Bilanz / Tag", (avgBal <= 0 ? "−" : "+") + de(Math.abs(avgBal)), avgBal <= 0 ? "Defizit" : "Überschuss")}</div>` : ""}
         <div class="stats">${tile("Sport", sport ? de(Math.round(sport)) + " kcal" : "–", "angerechnet")}${tile("Gewicht", wNow != null ? de(wNow) + " kg" : "–", dw != null ? (dw > 0 ? "+" : "") + de(dw) + " kg zur Vorwoche" : "")}</div></section>
         <section class="card"><h3>Kalorien pro Tag</h3>${histChart(days)}<div class="note">Balken = gegessen, Strich = Budget.</div></section>
         ${top.length ? `<section class="card"><h3>Am häufigsten gegessen</h3><div class="minilist">${top.map(([t, n]) => `<div><span>${esc(t)}</span><b>${n}×</b></div>`).join("")}</div></section>` : ""}`

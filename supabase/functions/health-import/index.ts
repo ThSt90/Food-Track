@@ -24,6 +24,13 @@ Deno.serve(async (req) => {
   if (b.weightKg != null && b.weightKg !== "") { if (kg >= 20 && kg <= 300) entries["w" + date] = { type: "weight", date, kg }; else skipped.push("Gewicht ungültig"); }
   const act = numK(b.activeKcal);
   if (b.activeKcal != null && b.activeKcal !== "") { if (act > 0 && act < 10000) entries["a" + date.replace(/-/g, "")] = { type: "active", date, kcal: Math.round(act) }; else skipped.push("Aktive kcal ungültig: " + JSON.stringify(b.activeKcal)); } // gleicher Tag überschreibt
+  // Tagesverbrauch (Ruhe- + Aktivitätsenergie) nur zum Vergleichen mit dem Gegessenen, ohne Sport-Anrechnung
+  if (b.burnRest != null || b.burnActive != null) {
+    const rest = b.burnRest == null || b.burnRest === "" ? null : numK(b.burnRest), active = b.burnActive == null || b.burnActive === "" ? null : numK(b.burnActive);
+    const okN = (v: number | null) => v === null || (Number.isFinite(v) && v >= 0 && v < 10000);
+    if (okN(rest) && okN(active) && ((rest ?? 0) > 0 || (active ?? 0) > 0)) entries["b" + date.replace(/-/g, "")] = { type: "burn", date, rest: rest === null ? null : Math.round(rest), active: active === null ? null : Math.round(active) };
+    else skipped.push("Verbrauch ungültig: " + JSON.stringify([b.burnRest, b.burnActive]));
+  }
   for (const w of Array.isArray(b.workouts) ? b.workouts : []) {
     const kcal = num(w.kcal), d = isDate(w.date) ? w.date : date;
     if (!(kcal > 0)) { skipped.push("Workout ohne kcal: " + String(w.name ?? "")); continue; } // nichts schätzen

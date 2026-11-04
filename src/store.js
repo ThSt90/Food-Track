@@ -343,7 +343,8 @@
       const macros = {};
       for (const k of ["protein", "carbs", "fat"]) macros[k] = { eaten: Math.round(eaten.reduce((s, m) => s + (m.total[k] || 0), 0)), complete: eaten.every((m) => m.total[k] != null), planned: Math.round(planned.reduce((s, m) => s + (m.total[k] || 0), 0)) };
       const slots = SLOTS.map(([key, label]) => { const list = ms.filter((m) => slotOf(m) === key); return { key, label, meals: list, multiOpen: list.filter((m) => OPEN.includes(m.status)).length > 1 }; });
-      return { date, settings: st, budget, macros, slots, meals: ms, activities: acts, sport,
+      const burn = (dayDoc(pid, date) || {}).burn || null;
+      return { date, settings: st, budget, macros, slots, meals: ms, activities: acts, sport, burn,
         unknown: budget.eatenUnknown > 0 || eaten.some((m) => m.quality === "unvollstaendig" || m.quality === "fehlt") };
     }
 
@@ -502,6 +503,7 @@
           const eaten = ms.filter((m) => m.status === "gegessen");
           const sport = L.sportCredit(acts, doc.sportCreditPct);
           const kc = eaten.map((m) => m.total.kcal), pr = eaten.map((m) => m.total.protein);
+          info.burn = doc.burn || null;
           Object.assign(info, { hasData: !!(ms.length || acts.length || doc.sportDone), complete: !!doc.complete, goal: doc.goalKcal, sport, eatenN: eaten.length,
             plannedN: ms.filter((m) => OPEN.includes(m.status)).length, eaten: Math.round(kc.reduce((s, k) => s + (k || 0), 0)),
             protein: eaten.length && pr.every((p) => p != null) ? Math.round(pr.reduce((s, p) => s + p, 0)) : null, sportDone: !!doc.sportDone,
@@ -542,6 +544,9 @@
         for (const [key, e] of hkOpen(pid)) {
           const okDate = /^\d{4}-\d{2}-\d{2}$/.test(e.date || "");
           if (okDate && e.type === "weight" && Number(e.kg) >= 20 && Number(e.kg) <= 300) { await upsertWeight(pid, e.date, Math.round(Number(e.kg) * 10) / 10, "Apple Health"); n++; }
+          else if (okDate && e.type === "burn" && (Number(e.rest) > 0 || Number(e.active) > 0)) { // Tagesverbrauch aus Health: nur zum Vergleichen, ändert Budget und Sport nicht
+            await dayPatch(pid, e.date, { burn: { rest: Number(e.rest) > 0 ? Math.round(Number(e.rest)) : null, active: Number(e.active) >= 0 && e.active != null ? Math.round(Number(e.active)) : null, at: now().toISOString() } }); n++;
+          }
           else if (okDate && e.type === "active" && Number(e.kcal) > 0 && Number(e.kcal) < 10000) { // aktive Energie des Tages: eine Einheit je Tag, wird bei jedem Lauf überschrieben
             await addActivity(pid, e.date, { id: "hkactive" + e.date.replace(/-/g, ""), kind: "sonstiges", minutes: 0, kcal: Number(e.kcal), source: "Apple Health (aktive Energie)" }); n++;
           }
