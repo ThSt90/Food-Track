@@ -432,7 +432,7 @@ body { background: transparent; min-height: 100dvh; }
 .pick:active { transform: scale(.985); }
 
 </style>
-<script>window.FR_BUILD="04.11. 17:20";</script>
+<script>window.FR_BUILD="04.11. 17:29";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -675,10 +675,12 @@ body { background: transparent; min-height: 100dvh; }
     if (typeof navigator !== "undefined" && navigator.serviceWorker && /^https?:/.test(root.location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
     const assets = createAssets(client, cfg);
     root.FR_ASSET = assets.url;
-    root.FR_PHOTO = async (image) => { // Foto-Schätzung über die Supabase-Funktion meal-photo (nur eingeloggt, nur Vorschlag)
-      try { const r = await client.req("/functions/v1/meal-photo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image }) }); return await r.json(); }
+    const aiCall = async (fn, body) => { // KI-Schätzung über Supabase-Funktionen (nur eingeloggt, nur Vorschlag)
+      try { const r = await client.req("/functions/v1/" + fn, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); return await r.json(); }
       catch (e) { let m = e && e.message || ""; try { m = JSON.parse(m).error || m; } catch (x) { /* kein JSON */ } throw new Error(e && e.code === "offline" ? "Kein Netz" : m || "Schätzung nicht möglich."); }
     };
+    root.FR_PHOTO = (image) => aiCall("meal-photo", { image });
+    root.FR_TEXT = (text) => aiCall("meal-text", { text });
     const downloads = { async save({ filename, data }) {
       const b = new Blob([typeof data === "string" ? data : JSON.stringify(data)], { type: "application/json" });
       const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
@@ -2139,7 +2141,8 @@ body { background: transparent; min-height: 100dvh; }
 
     const pp = store.partnerPlan(pid, date).filter((m) => m.recipeId);
     const partner = pp.length ? `<section class="card" aria-label="Auch geplant"><h3>Auch geplant</h3><div class="minilist">${pp.map((m) => `<div><span><b>${esc(m.title)}</b><br><span class="note">${esc(m.who)} · ${esc(SLOT_LABEL[m.slot] || "")} · für ${deA(m.servings)} Pers.</span></span></div>`).join("")}</div></section>` : "";
-    return kpiCard(d, e) + out + partner + extra;
+    const describeBtn = window.FR_TEXT ? `<button class="btn big full" data-act="describe">${ic("plus", 18)} Gegessenes beschreiben</button>` : "";
+    return kpiCard(d, e) + describeBtn + out + partner + extra;
   }
 
   function mealRow(m) {
@@ -2814,8 +2817,8 @@ Regeln:
     const s = ui.sheet;
     const q = L.norm(s.q || "");
     const rs = store.recipes(ui.pid).filter((r) => !q || L.norm(r.title).includes(q)).slice(0, 30);
-    return `<div class="filters">${[["rezept", "Aus Bibliothek"], ["manuell", "Ohne Rezept"]].map(([k, t]) => `<button class="chip line" data-act="amTab" data-v="${k}" aria-pressed="${s.tab === k}">${t}</button>`).join("")}</div>
-      ${s.tab === "rezept" ? `<input id="am-q" type="search" placeholder="Rezept suchen" value="${esc(s.q || "")}" data-input="amq" aria-label="Rezept suchen">
+    return `<div class="filters">${[...(window.FR_TEXT ? [["beschreiben", "Beschreiben"]] : []), ["rezept", "Aus Bibliothek"], ["manuell", "Ohne Rezept"]].map(([k, t]) => `<button class="chip line" data-act="amTab" data-v="${k}" aria-pressed="${s.tab === k}">${t}</button>`).join("")}</div>
+      ${s.tab === "beschreiben" ? sheetDescribe(s) : s.tab === "rezept" ? `<input id="am-q" type="search" placeholder="Rezept suchen" value="${esc(s.q || "")}" data-input="amq" aria-label="Rezept suchen">
         <div class="minilist">${rs.map((r) => `<div><span><b>${esc(r.title)}</b><br><span class="note">${kcal(r.nut.perPortion.kcal)} kcal je Portion · ${esc(L.QUALITY_LABEL[r.nut.quality])}</span></span>
           <span class="btns"><button class="btn sm" data-act="amAdd" data-id="${r.id}" data-s="geplant">Planen</button><button class="btn sm primary" data-act="amAdd" data-id="${r.id}" data-s="gegessen">Gegessen</button></span></div>`).join("") || `<div class="note">Keine Rezepte gefunden.</div>`}</div>`
       : `${window.FR_PHOTO ? `<div class="photoest"><label class="btn full ${s.est && s.est.busy ? "disabled" : ""}">${s.est && s.est.busy ? "Foto wird geschätzt …" : `${ic("plus", 16)} Foto machen oder wählen und schätzen`}<input id="mm-photo" type="file" accept="image/*" hidden data-change="mmPhoto"></label>
@@ -2825,6 +2828,21 @@ Regeln:
         <label class="f">Protein g<input id="mm-protein" type="number" inputmode="decimal" min="0" value="${s.est && s.est.protein != null ? s.est.protein : ""}"></label><label class="f">Kohlenhydrate g<input id="mm-carbs" type="number" inputmode="decimal" min="0" value="${s.est && s.est.carbs != null ? s.est.carbs : ""}"></label><label class="f">Fett g<input id="mm-fat" type="number" inputmode="decimal" min="0" value="${s.est && s.est.fat != null ? s.est.fat : ""}"></label>
         <label class="f">Status<select id="mm-status"><option value="gegessen">gegessen</option><option value="geplant">geplant</option></select></label>
         <div class="note full">Ohne Kalorienwert wird nichts angerechnet und der Tag gilt als unvollständig.</div><button class="btn primary full">Eintragen</button></form>`}`;
+  }
+
+  /** Gegessenes in eigenen Worten (getippt oder diktiert): KI zerlegt in Posten und schätzt die Kalorien; Mensch prüft und trägt ein. */
+  function sheetDescribe(s) {
+    const d = s.ds || {};
+    const res = d.items ? `<div class="card" style="margin:0"><div class="eyebrow">Geschätzt · Sicherheit: ${esc(d.confidence)}</div>
+        <div class="minilist">${d.items.map((i) => `<div><span>${esc(i.name)}</span><b>${de(i.kcal)} kcal</b></div>`).join("")}</div>
+        <div class="stats"><div class="stat"><b>≈ ${d.kcal == null ? "–" : de(d.kcal)}</b><span>kcal gesamt</span></div><div class="stat"><b>${d.protein == null ? "–" : de(d.protein)} g</b><span>Protein</span></div></div>
+        ${d.note ? `<div class="note">${esc(d.note)}</div>` : ""}
+        <label class="f">Mahlzeit<select id="ds-slot">${X.SLOTS.map(([k, t]) => `<option value="${k}" ${k === s.slot ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <button class="btn primary full" data-act="dsSave">Als gegessen eintragen</button></div>` : "";
+    return `<label class="f full">Was hast du gegessen?<textarea id="ds-text" rows="4" data-input="dsText" placeholder="z. B. 3 Toast, ein Ei, 2 Toast mit Philadelphia und einer mit Nutella">${esc(s.dsText || "")}</textarea></label>
+      <div class="note">Tipp: Mit der Mikrofon-Taste der iPhone-Tastatur kannst du sprechen statt tippen. Die Werte sind Näherungen, die du vor dem Eintragen prüfst.</div>
+      <button class="btn primary full" data-act="dsRun" ${d.busy ? "disabled" : ""}>${d.busy ? "Wird berechnet …" : d.items ? "Neu berechnen" : "Berechnen"}</button>
+      ${d.error ? `<div class="notice">${esc(d.error)}</div>` : ""}${res}`;
   }
 
   function sheetPlan() {
@@ -2992,6 +3010,21 @@ Regeln:
     mealMenu: (t) => openSheet("mealMenu", { id: t.dataset.id }),
     delMeal: (t) => run("meal:" + t.dataset.id, async () => { await store.deleteMeal(ui.pid, ui.date, t.dataset.id); closeSheet(); toast("Eintrag entfernt"); }),
     addMeal: (t) => openSheet("addMeal", { slot: t.dataset.slot, tab: "rezept", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }),
+    describe: () => { const h = new Date().getHours(); openSheet("addMeal", { slot: h < 11 ? "fruehstueck" : h < 15 ? "mittag" : "abend", tab: "beschreiben", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }); },
+    dsRun: async () => {
+      const sh = ui.sheet, el = document.getElementById("ds-text"); if (!sh) return;
+      sh.dsText = el ? el.value : sh.dsText || "";
+      if (!sh.dsText.trim()) { toast("Bitte erst eintragen, was du gegessen hast."); return; }
+      sh.ds = { busy: true }; renderSheet(true);
+      try { const o = await window.FR_TEXT(sh.dsText.trim()); if (ui.sheet === sh) sh.ds = o; }
+      catch (err) { if (ui.sheet === sh) sh.ds = { error: err && err.message ? err.message : "Berechnung nicht möglich." }; }
+      if (ui.sheet === sh) renderSheet(true);
+    },
+    dsSave: () => run("ds", async () => {
+      const d = ui.sheet && ui.sheet.ds; if (!d || !d.items || d.kcal == null) return;
+      await store.addMeal(ui.pid, ui.date, val("ds-slot") || ui.sheet.slot, { id: ui.sheet.token, title: d.title, manual: { kcal: d.kcal, protein: d.protein, carbs: d.carbs, fat: d.fat, items: d.items }, portions: 1, status: "gegessen" });
+      closeSheet();
+    }),
     amTab: (t) => { ui.sheet.tab = t.dataset.v; renderSheet(true); },
     amAdd: (t) => run("am", async () => {
       await store.addMeal(ui.pid, ui.date, ui.sheet.slot, { recipeId: t.dataset.id, status: t.dataset.s, id: ui.sheet.token, servings: 4 });
@@ -3262,6 +3295,7 @@ Regeln:
   document.addEventListener("input", (e) => {
     const t = e.target, ed = ui.sheet && ui.sheet.ed;
     if (t.dataset.input === "libq") { ui.lib.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(() => { const pos = t.selectionStart; renderMain(); const n = $("#lib-q"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }, 250); }
+    if (t.dataset.input === "dsText" && ui.sheet) { ui.sheet.dsText = t.value; return; }
     if (t.dataset.input === "amq") { ui.sheet.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(() => { renderSheet(true); const n = $("#am-q"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 250); }
     if (t.dataset.input === "impUrl") ui.sheet.im.url = t.value;
     if (t.dataset.input === "impText") ui.sheet.im.text = t.value;

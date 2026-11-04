@@ -12,7 +12,7 @@ Persönliches Ernährungs-Dashboard für Thomas und seine Partnerin. Antworte au
   4. `index.html` unter der URL oben neu veröffentlichen.
 - **Regeln, die nicht aufgeweicht werden dürfen:**
   - nie erfundene Nährwerte, Mengen oder Körperdaten
-    - einzige Ausnahme: Foto-Schätzung (Funktion `meal-photo`) nur als gekennzeichneter Vorschlag in der Eintragsmaske, Thomas hat Näherungswerte hier ausdrücklich erlaubt; gespeichert wird erst nach Bestätigung
+    - einzige Ausnahmen: Foto-Schätzung (`meal-photo`) und Text-/Sprach-Schätzung (`meal-text`) nur als gekennzeichneter Vorschlag in der Eintragsmaske, Thomas hat Näherungswerte hier ausdrücklich erlaubt; gespeichert wird erst nach Bestätigung
   - nur Gegessenes zählt in die Bilanz
   - Verzehre und Tagesziele bleiben eingefroren
   - In „Entdecken“ löscht Wischen nie: links = nicht in die engere Auswahl, rechts = in die engere Auswahl. Löschen und Favorit setzen nur unter „Rezepte“
