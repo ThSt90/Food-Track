@@ -2971,6 +2971,8 @@ Regeln:
     if (!t || t.disabled) return;
     const fn = ACT[t.dataset.act];
     if (fn) {
+      // iOS nimmt einem Eingabefeld beim Tippen auf einen Button den Fokus nicht: sonst bliebe die Anzeige bis zum zweiten Tipp "eingefroren"
+      const act = document.activeElement; if (act && act !== t && typing()) act.blur();
       if (t.tagName === "BUTTON" && t.type === "submit" && !t.closest("form")) e.preventDefault();
       try { const res = fn(t, e); if (res && res.catch) res.catch((err) => { console.error(err); toast("Konnte nicht ausführen: " + (err && err.message || err)); }); }
       catch (err) { console.error(err); toast("Konnte nicht ausführen: " + (err && err.message || err)); }

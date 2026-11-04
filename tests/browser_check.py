@@ -173,6 +173,11 @@ def main() -> int:
         page.click("[data-act=undoDecision]"); page.wait_for_timeout(500)
         nav("Rezepte"); page.wait_for_timeout(200)
         check("Rezept bleibt in der Bibliothek", first_title in body())
+        # iOS: ein Tipp auf einen Button nimmt dem Suchfeld den Fokus nicht -> Anzeige darf trotzdem nicht hängen
+        page.evaluate("document.querySelectorAll('nav.bottom button').forEach(b => b.addEventListener('mousedown', e => e.preventDefault()))")
+        page.focus("#lib-q"); page.click("nav.bottom button:has-text('Neu')"); page.wait_for_timeout(400)
+        check("Ein Tipp genügt, auch wenn ein Suchfeld den Fokus hat", page.locator(".swipe, .chooser").count() >= 1)
+        nav("Rezepte"); page.wait_for_timeout(200)
         nav("Neu"); page.wait_for_selector(".swipe", timeout=5000)
         box = page.locator(".swipe").bounding_box()
         page.mouse.move(box["x"] + box["width"] / 2, box["y"] + 300); page.mouse.down()
