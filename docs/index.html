@@ -463,8 +463,18 @@ body { background: transparent; min-height: 100dvh; }
 .pal-new input[type=color] { width: 100%; height: 44px; padding: 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); box-sizing: border-box; }
 .pal-acts { display: grid; gap: 8px; } .pal-acts:empty { display: none; } .pal-acts .btn { width: 100%; height: 44px; min-height: 44px; box-sizing: border-box; border-radius: 12px; font-size: 14px; }
 
+.shop label { grid-template-columns: 26px 1fr auto; }
+.shop-r { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.shop-r .btn { height: 44px; min-height: 44px; box-sizing: border-box; border-radius: 12px; font-size: 14px; padding: 0 8px; }
+.shop-r .btn.a { width: 104px; text-align: center; }
+.shop-r .btn:not(.a) { width: 44px; padding: 0; display: inline-grid; place-items: center; }
+.minilist > div > .stepper { width: 148px; flex: none; height: 44px; box-sizing: border-box; }
+.minilist > div > .stepper.ro { justify-content: center; }
+.minilist > div > .stepper button { width: 44px; height: 100%; }
+.minilist > div > .stepper span { flex: 1; text-align: center; font-size: 13px; white-space: nowrap; }
+
 </style>
-<script>window.FR_BUILD="04.11. 22:15";</script>
+<script>window.FR_BUILD="04.11. 22:30";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2630,12 +2640,12 @@ Regeln:
     const showDone = !!ui.showDone;
     const row = (i) => `<label class="${i.checked || i.have ? "done" : ""}"><input type="checkbox" data-change="shopCheck" data-key="${esc(i.key)}" ${i.checked ? "checked" : ""} aria-label="${esc(i.name)} gekauft">
       <span><span class="n">${esc(i.name)}</span>${[i.extra ? "zusätzlich ohne Mengenangabe" : "", i.have ? "schon vorhanden" : "", i.override != null ? "Menge angepasst" : ""].filter(Boolean).map((t) => `<span class="s">${t}</span>`).join("")}</span>
-      <span style="display:flex;gap:6px;align-items:center"><button class="btn sm ghost a" data-act="shopAmount" data-key="${esc(i.key)}">${i.shown == null ? "nach Bedarf" : `${deA(i.shown)} ${esc(i.unit || "")}`}</button>
+      <span class="shop-r"><button class="btn sm ghost a" data-act="shopAmount" data-key="${esc(i.key)}">${i.shown == null ? "nach Bedarf" : `${deA(i.shown)} ${esc(i.unit || "")}`}</button>
         ${i.auto ? "" : `<button class="btn sm ghost" data-act="shopDel" data-id="${esc(i.id)}" aria-label="Entfernen">${ic("trash", 15)}</button>`}</span></label>`;
     return `<div class="toprow"><span class="note">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</span><button class="btn sm" data-act="shopResetAll">${ic("undo", 16)} Alles zurücksetzen</button></div><div class="filters">${[["tag", "Heute"], ["woche", "Diese Woche"]].map(([k, t]) => `<button class="chip line" data-act="span" data-v="${k}" aria-pressed="${(ui.shopSpan === "woche") === (k === "woche")}">${t}</button>`).join("")}</div><div class="filters">${scopes.map(([k, t]) => `<button class="chip line" data-act="scope" data-v="${k}" aria-pressed="${s.scope === k}">${esc(t)}</button>`).join("")}</div>
       <section class="card"><div class="row"><div><h2>Einkaufsliste</h2><div class="sub">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</div></div>${ring(String(done.length), s.items.length ? (done.length / s.items.length) * 100 : 0, "hi", "erledigt")}</div>
       ${s.meals.length ? `<div class="minilist">${s.meals.map((m) => `<div><span><b>${esc(m.title)}</b>${m.pid !== ui.pid && m.who ? ` <span class="note">(${esc(m.who)})</span>` : ""}<br><span class="note">${s.week ? esc(fmtDate(m.date)) + " · " : ""}${esc(SLOT_LABEL[m.slot] || "")} · Rezept ist für ${deA(m.recipeServings)}</span></span>
-        ${m.pid === ui.pid ? `<span class="chip line" style="gap:2px;padding:2px 4px"><button class="link" style="padding:0 10px" data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button>für ${deA(m.servings)} Pers.<button class="link" style="padding:0 10px" data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></span>` : `<span class="note">für ${deA(m.servings)} Pers.</span>`}</div>`).join("")}</div>` : ""}
+        ${m.pid === ui.pid ? `<div class="stepper" role="group" aria-label="Portionen"><button data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button><span>${deA(m.servings)} Pers.</span><button data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></div>` : `<div class="stepper ro"><span>${deA(m.servings)} Pers.</span></div>`}</div>`).join("")}</div>` : ""}
       ${s.items.length ? `<div class="shop">${open.map(row).join("")}</div>${!open.length && done.length ? `<div class="note">Alles abgehakt.</div>` : ""}${done.length ? `<button class="link acc" data-act="toggleDone">${showDone ? "Erledigte ausblenden" : `${done.length} erledigt/vorhanden ausgeblendet – anzeigen`}</button>${showDone ? `<div class="shop">${done.map(row).join("")}</div>` : ""}` : ""}`
         : `<div class="empty"><b>Noch nichts geplant</b><span>Wähle unter „Neu“ Gerichte für heute oder plane sie unter „Ausgewählt“ – die Zutaten erscheinen hier automatisch und passen sich an Portionen an.</span><button class="btn primary" data-act="view" data-v="radar">Gerichte in „Neu“ wählen</button></div>`}
             ${open.length ? `<button class="btn" data-act="shopShare">Offene Posten teilen / kopieren (z. B. für Bring!)</button>` : ""}
