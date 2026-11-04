@@ -431,8 +431,12 @@ body { background: transparent; min-height: 100dvh; }
 .pick .pa { opacity: .7; display: grid; }
 .pick:active { transform: scale(.985); }
 
+.pot .calc { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,.1); display: grid; gap: 4px; font-size: 14px; }
+.pot .calc > div { display: flex; justify-content: space-between; gap: 12px; }
+.pot .calc .sub { color: var(--muted); font-size: 13px; }
+
 </style>
-<script>window.FR_BUILD="04.11. 17:43";</script>
+<script>window.FR_BUILD="04.11. 17:58";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2126,10 +2130,12 @@ body { background: transparent; min-height: 100dvh; }
   /** Drei Kennzahlen, nicht mehr: Gesamtverbrauch pro Tag, heute verbraucht (Ruhe + Aktivität aus Apple Health), noch verfügbar. */
   function kpiCard(d, e) {
     const bn = d.burn, burned = bn ? (bn.rest || 0) + (bn.active || 0) : null, rem = d.budget.remaining;
+    const g = d.budget.goal, cut = g != null && e && e.tdee != null ? Math.round(e.tdee - g) : 0;
+    const calc = g == null ? "" : `<div class="calc"><div><span>Tagesziel</span><b>${de(g)} kcal</b></div>${cut > 0 ? `<div class="sub"><span>Abnehmziel: ${de(cut)} kcal weniger als dein Gesamtverbrauch (${de(e.tdee)} − ${de(cut)})</span></div>` : ""}${d.budget.sport > 0 ? `<div><span>+ angerechneter Sport</span><b>${de(d.budget.sport)} kcal</b></div>` : ""}<div><span>− gegessen</span><b>${de(d.budget.eaten)} kcal</b></div></div>`;
     return `<section class="kpis" aria-label="Kennzahlen"><div class="stats">
         <div class="stat"><b>${e && e.tdee != null ? de(e.tdee) : "–"}</b><span>Gesamtverbrauch pro Tag (kcal)</span></div>
         <div class="stat"><b>${burned != null ? de(burned) : "–"}</b><span>Heute verbraucht (kcal)</span></div></div>
-      <div class="pot ${rem != null && rem < 0 ? "over" : ""}"><div class="eyebrow">Noch verfügbar</div><div class="head"><div class="big">${rem == null ? "–" : de(rem)}<small>kcal</small></div></div></div></section>`;
+      <div class="pot ${rem != null && rem < 0 ? "over" : ""}"><div class="eyebrow">Noch verfügbar</div><div class="head"><div class="big">${rem == null ? "–" : de(rem)}<small>kcal</small></div></div>${calc}</div></section>`;
   }
 
   function vTag() {
