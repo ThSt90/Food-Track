@@ -287,9 +287,9 @@ svg.chart .grid { stroke: var(--line); stroke-width: 1; }
 nav.bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--glass); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
   border-top: 1px solid var(--line); padding: 6px max(10px, env(safe-area-inset-left, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-right, 0px)); }
 nav.bottom .in { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-nav.bottom button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px; border: 0; border-radius: 16px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; }
+nav.bottom button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 12px 2px; min-height: 52px; justify-content: center; border: 0; border-radius: 16px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; }
 nav.bottom button[aria-current="page"] { background: var(--accent-soft); color: var(--accent-text); }
-nav.bottom svg { width: 24px; height: 24px; }
+nav.bottom svg { width: 28px; height: 28px; }
 .sheet-bg { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
 .sheet { width: 100%; max-width: 760px; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 24px); overflow-y: auto; overscroll-behavior: contain; background: var(--bg); border-radius: 24px 24px 0 0; border: 1px solid var(--line); border-bottom: 0;
   padding: 10px max(16px, env(safe-area-inset-left, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 14px; animation: up .22s ease both; }
@@ -458,7 +458,7 @@ body { background: transparent; min-height: 100dvh; }
 .meal[data-mid] { touch-action: pan-y; } .meal.swipe-del { background: var(--bad-soft); border-color: var(--bad); }
 
 </style>
-<script>window.FR_BUILD="04.11. 21:31";</script>
+<script>window.FR_BUILD="04.11. 22:05";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2137,14 +2137,14 @@ body { background: transparent; min-height: 100dvh; }
     const dateBar = withDate ? `<div class="datebar"><button class="iconbtn" data-act="day" data-n="-1" aria-label="Vortag">${ic("left", 18)}</button>
       <div style="text-align:center"><b>${esc(relDay(d))}</b><div class="sub">${esc(fmtDate(d))}</div></div>
       <button class="iconbtn" data-act="day" data-n="1" aria-label="Folgetag">${ic("right", 18)}</button></div>` : "";
-    return `<header class="top"><svg class="brand" viewBox="60 60 400 400" aria-label="Foody" role="img"><circle cx="256" cy="268" r="150" fill="none" stroke="currentColor" stroke-width="26"/><circle cx="256" cy="268" r="96" fill="currentColor" opacity=".25"/><path d="M360 118l12 34 34 12-34 12-12 34-12-34-34-12 34-12z" fill="currentColor"/><path d="M214 232v80M234 232v80M254 232v80M234 312v46" stroke="currentColor" stroke-width="18" stroke-linecap="round" fill="none"/></svg>${ps.length > 1 ? `<div class="who" role="group" aria-label="Person">${who}</div>` : ""}<button class="iconbtn" data-act="theme" aria-label="Hell oder dunkel umschalten" title="Hell / Dunkel">${themeIsDark() ? "☀︎" : "☾"}</button></header>${dateBar}`;
+    return `<header class="top">${ps.length > 1 ? `<div class="who" role="group" aria-label="Person">${who}</div>` : ""}</header>${dateBar}`;
   }
 
   const assetUrl = (id) => (window.FR_ASSET ? window.FR_ASSET(id) : "/_blob/" + id);
   const NAV = [["radar", "Neu", "sparkle"], ["heute", "Ausgewählt", "checklist"], ["rezepte", "Rezepte", "book"], ["einkauf", "Einkauf", "cart"], ["mehr", "Mehr", "more"]];
   function renderNav() {
     const cur = ["historie", "gewicht", "profil", "rueckblick", "health"].includes(ui.view) ? "mehr" : ui.view;
-    const navHtml = `${cur === "rezepte" ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 24)}<span>${t}</span></button>`).join("")}</div>`;
+    const navHtml = `${cur === "rezepte" ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" aria-label="${t}" title="${t}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 28)}</button>`).join("")}</div>`;
     if (navHtml !== ui.lastNav) { $("#nav").innerHTML = navHtml; ui.lastNav = navHtml; }
   }
 
@@ -2251,8 +2251,8 @@ body { background: transparent; min-height: 100dvh; }
     const describeBtn = `<button class="btn big full" data-act="describe">${ic("plus", 18)} Gegessenes beschreiben</button>`;
     const wait = store.mealRequests(pid).filter((m) => m.date === date);
     const waiting = wait.length ? `<section class="card" aria-label="Wartet auf Berechnung"><h3>Wartet auf Berechnung</h3><div class="minilist">${wait.map((m) => `<div><span style="display:flex;gap:10px;align-items:center">${m.image ? `<img class="dsthumb" src="${esc(assetUrl(m.image))}" alt="">` : ""}${esc(m.text || "Foto")}</span><button class="btn sm ghost" data-act="dsDel" data-id="${m.id}" aria-label="Entfernen">${ic("trash", 15)}</button></div>`).join("")}</div><div class="note">Sag Claude „Essen berechnen“, dann steht es hier als Mahlzeit.</div></section>` : "";
-    // Kalorienanzeige: bei Thomas (Profil 1) oben, bei Caro (Profil 2) unten
-    return pid === "p2" ? describeBtn + waiting + out + partner + extra + kpiCard(d, e) : kpiCard(d, e) + describeBtn + waiting + out + partner + extra;
+    // Kalorienanzeige: bei Thomas (Profil 1) oben, bei Caro (Profil 2) ganz ausgeblendet
+    return pid === "p2" ? describeBtn + waiting + out + partner + extra : kpiCard(d, e) + describeBtn + waiting + out + partner + extra;
   }
 
   function mealRow(m) {
@@ -2653,7 +2653,7 @@ Regeln:
       <button data-act="view" data-v="gewicht">${ic("scale")}<span>Gewicht<br><span class="note">Verlauf, Trend und Ziel</span></span></button></div>
       <div class="eyebrow">Einstellungen</div><div class="more">
       <button data-act="view" data-v="profil">${ic("user")}<span>Profile und Einstellungen<br><span class="note">Kalorienbedarf, Sportwerte, Lebensmittel, Datensicherung</span></span></button></div>
-      <div class="eyebrow">Darstellung</div>${palette}`;
+      <div class="eyebrow">Darstellung</div><div class="more"><button data-act="theme" aria-pressed="${themeIsDark()}"><span>${themeIsDark() ? "☀︎" : "☾"}</span><span>Hell / Dunkel<br><span class="note">Jetzt: ${themeIsDark() ? "dunkel – tippen für hell" : "hell – tippen für dunkel"}</span></span></button></div>${palette}`;
   }
 
   function vHistorie() {
