@@ -352,8 +352,8 @@ nav.bottom button.fab svg { width: 22px; height: 22px; }
 .cook-step b { color: var(--accent-text); }
 .sheet .tbl td.r:first-child { white-space: nowrap; }
 
-.swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; justify-items: center; }
-.sw-c { width: 100%; max-width: 56px; aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; background: var(--c); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06); }
+.swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; justify-items: center; }
+.sw-c { width: 100%; max-width: 40px; aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; background: var(--c); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06); }
 .sw-c[aria-checked="true"] { border-color: var(--text); box-shadow: 0 0 0 3px var(--bg) inset; }
 
 .chooser { display: flex; flex-direction: column; gap: 14px; padding-top: 24px; }
@@ -457,8 +457,14 @@ body { background: transparent; min-height: 100dvh; }
 .cook-reply.live { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); animation: cookpulse 1.4s ease-in-out infinite; } @keyframes cookpulse { 50% { box-shadow: 0 0 0 7px transparent; } }
 .meal[data-mid] { touch-action: pan-y; } .meal.swipe-del { background: var(--bad-soft); border-color: var(--bad); }
 
+.pal { display: flex; flex-direction: column; gap: 14px; } .pal h2 { margin: 0; } .pal > .sub { margin-top: -10px; }
+.pal-sub { font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: -6px; }
+.pal-new { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px; font-weight: 700; color: var(--muted); }
+.pal-new input[type=color] { width: 100%; height: 44px; padding: 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); box-sizing: border-box; }
+.pal-acts { display: grid; gap: 8px; } .pal-acts:empty { display: none; } .pal-acts .btn { width: 100%; height: 44px; min-height: 44px; box-sizing: border-box; border-radius: 12px; font-size: 14px; }
+
 </style>
-<script>window.FR_BUILD="04.11. 22:11";</script>
+<script>window.FR_BUILD="04.11. 22:14";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2113,7 +2119,7 @@ body { background: transparent; min-height: 100dvh; }
   applyTheme(LS.get("theme", "light"));
   // Akzentfarbe: genau die gewählte Farbe wird für Flächen verwendet; Schrift/Text bekommt automatisch eine dunklere (hell) bzw. hellere (dunkel) Variante
   const hslToHex = (h, s, l) => { s /= 100; l /= 100; const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return "#" + [f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join(""); };
-  const ACCENTS = [[150, "Salbei"], [172, "Mint"], [200, "Himmel"], [222, "Hortensie"], [262, "Lavendel"], [305, "Orchidee"], [345, "Rosé"], [14, "Pfirsich"], [32, "Aprikose"], [48, "Butter"]].map(([h, n]) => [hslToHex(h, 45, 80), n]);
+  const ACCENTS = [[148, "Salbei"], [178, "Türkis"], [205, "Himmel"], [228, "Blau"], [268, "Lavendel"], [312, "Orchidee"], [350, "Rosé"], [10, "Koralle"], [34, "Aprikose"], [54, "Gelb"]].map(([h, n]) => [hslToHex(h, 55, 70), n]);
   function hexParts(hex) { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2, sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0; let h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; const lin = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)); return { h: Math.round(((h * 60) + 360) % 360), s: Math.round(sat * 100), l: Math.round(l * 100), lum: 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) }; }
   const accentHex = () => { const a = LS.get("accent", null); if (!a) return null; if (a.hex) return String(a.hex).toLowerCase(); return typeof a.h === "number" ? hslToHex(a.h, 45, 80) : null; };
   function applyAccent() {
@@ -2639,13 +2645,11 @@ Regeln:
   // ================================================================== Mehr, Historie, Gewicht
   function vMehr() {
     const curHex = accentHex(), saved = LS.get("accentSaved", []) || [], savedHere = curHex != null && saved.some((c) => String(c.hex).toLowerCase() === curHex);
-    const palette = `<details class="card fold" ${ui.palOpen ? "open" : ""}><summary data-act="palToggle"><h2>Farbe der App</h2><span class="sub">Gilt nur auf diesem Gerät</span></summary>
+    const palette = `<section class="card pal" aria-label="Farbe der App"><h2>Farbe der App</h2><div class="sub">Gilt nur auf diesem Gerät</div>
       <div class="swatches" role="radiogroup" aria-label="Akzentfarbe">${ACCENTS.map(([hex, n]) => `<button class="sw-c" role="radio" aria-checked="${curHex === hex}" aria-label="${n}" title="${n}" data-act="accent" data-hex="${hex}" style="--c:${hex}"></button>`).join("")}</div>
-      ${saved.length ? `<div class="eyebrow">Meine Farben</div><div class="swatches">${saved.map((c) => `<button class="sw-c" role="radio" aria-checked="${curHex === String(c.hex).toLowerCase()}" aria-label="Eigene Farbe" data-act="accent" data-hex="${esc(c.hex)}" style="--c:${esc(c.hex)}"></button>`).join("")}</div>` : ""}
-      <label class="f" style="flex-direction:row;align-items:center;gap:12px">Neue Farbe<input type="color" id="accent-custom" data-change="accentCustom" value="${esc(ui.pendingHex || curHex || "#8fb39b")}" aria-label="Neue Farbe wählen"></label>
-      ${ui.pendingHex ? `<button class="btn sm primary" data-act="accentSave" style="align-self:flex-start">Farbe in „Meine Farben“ speichern</button>` : ""}
-      ${savedHere ? `<button class="btn sm ghost" data-act="accentDel" style="align-self:flex-start">Diese gespeicherte Farbe entfernen</button>` : ""}
-      ${curHex ? `<button class="btn sm ghost" data-act="accentReset" style="align-self:flex-start">Zurück zum Standard</button>` : ""}</details>`;
+      ${saved.length ? `<div class="pal-sub">Meine Farben</div><div class="swatches">${saved.map((c) => `<button class="sw-c" role="radio" aria-checked="${curHex === String(c.hex).toLowerCase()}" aria-label="Eigene Farbe" data-act="accent" data-hex="${esc(c.hex)}" style="--c:${esc(c.hex)}"></button>`).join("")}</div>` : ""}
+      <label class="pal-new"><span>Neue Farbe</span><input type="color" id="accent-custom" data-change="accentCustom" value="${esc(ui.pendingHex || curHex || "#8fb39b")}" aria-label="Neue Farbe wählen"></label>
+      <div class="pal-acts">${ui.pendingHex ? `<button class="btn" data-act="accentSave">Farbe in „Meine Farben“ speichern</button>` : ""}${savedHere ? `<button class="btn ghost" data-act="accentDel">Diese gespeicherte Farbe entfernen</button>` : ""}${curHex ? `<button class="btn ghost" data-act="accentReset">Zurück zum Standard</button>` : ""}</div></section>`;
     return `<h2>Mehr</h2><div class="eyebrow">Auswertung</div><div class="more">
       <button data-act="view" data-v="rueckblick">${ic("radar")}<span>Wochenrückblick<br><span class="note">Die letzten 7 Tage auf einen Blick</span></span></button>
       <button data-act="view" data-v="health">${ic("check")}<span>Apple Health<br><span class="note">Workouts und Waage per Kurzbefehl</span></span></button>
@@ -2707,12 +2711,7 @@ Regeln:
       <section class="card"><h3>Jetzt aktualisieren</h3>
         <div class="note">Startet deinen Kurzbefehl von hier. iOS wechselt kurz zu Kurzbefehle und wieder zurück. Name genau wie in der Kurzbefehle-App eintragen.</div>
         <input id="hk-name" class="inp" placeholder="Name des Kurzbefehls" autocomplete="off" value="${esc(LS.get("hkname", ""))}">
-        <button class="btn" data-act="hkRun">Kurzbefehl starten</button></section>
-      <section class="card"><h3>1. Einmalig: Geheimwort setzen</h3><div class="note">In Supabase unter Edge Functions → Secrets ein Secret <b>HEALTH_KEY</b> mit einem selbst gewählten langen Wort anlegen.</div></section>
-      <section class="card"><h3>2. Kurzbefehl bauen</h3>
-        <div class="note">Kurzbefehle → Automation → Persönlich: „Tageszeit“ (z. B. 21:00) oder „Workout beenden“. Aktionen: „Health-Werte suchen“ (Gewicht bzw. Workouts), danach „Inhalte von URL abrufen“ mit diesen Angaben:</div>
-        ${code("URL (Methode POST)", HEALTH_URL())}${code("Header", "x-health-key: <dein Geheimwort>")}${code("Anfragetext (JSON)", ex)}
-        <div class="note">burnRest = Ruheenergie von heute, burnActive = Aktivitätsenergie von heute (jeweils die Summe in kcal). Foody zeigt daraus die Energiebilanz „verbraucht gegenüber gegessen“. Das Tagesbudget bleibt unverändert. Die Werte werden bei jedem Lauf für heute überschrieben, ein Datum ist optional ("date": "JJJJ-MM-TT"). Zusätzlich geht auch weightKg (Gewicht).</div></section>`;
+        <button class="btn" data-act="hkRun">Kurzbefehl starten</button></section>`;
   }
 
   function vRueckblick() {
