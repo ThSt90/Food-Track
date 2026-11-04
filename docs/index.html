@@ -41,7 +41,7 @@
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 var(--font); overflow-x: hidden; }
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 50; background: var(--bg); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 50; background: transparent; }
 button, input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
 .num, .big, .kpi b, .ring span { font-variant-numeric: tabular-nums; }
@@ -401,6 +401,16 @@ button, a, [data-act], summary { touch-action: manipulation; -webkit-tap-highlig
 .wday h3 { margin: 0; display: flex; gap: 8px; align-items: center; }
 
 .hintline { text-align: center; min-height: 20px; line-height: 20px; flex: none; }
+
+/* Pastell-Verlauf in der gewählten Akzentfarbe */
+html { background: var(--bg); }
+body { background: transparent; }
+body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  --t1: color-mix(in srgb, var(--accent) 42%, var(--bg)); --t2: color-mix(in srgb, var(--accent) 20%, var(--bg));
+  background:
+    radial-gradient(120% 60% at 0% 0%, var(--t1) 0%, transparent 60%),
+    radial-gradient(110% 55% at 100% 100%, color-mix(in srgb, var(--accent-2, var(--accent)) 32%, var(--bg)) 0%, transparent 62%),
+    linear-gradient(160deg, var(--t2), var(--bg) 70%); }
 
 </style>
 <script>
