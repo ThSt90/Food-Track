@@ -416,6 +416,7 @@ body { background: transparent; min-height: 100dvh; }
 .seg2 { display: flex; gap: 8px; } .seg2 .btn { flex: 1; justify-content: center; }
 .stat span, .stat small { display: block; }
 .bal .bigline { display: flex; align-items: baseline; gap: 8px; } .bal .bigline b { font-size: 40px; letter-spacing: -.02em; } .bal .bigline span { font-size: 16px; color: var(--muted); } .bal .minilist { margin-top: 10px; } .bal b.ok { color: var(--accent-text); } .bal b.bad { color: var(--bad); }
+.kpis { display: grid; gap: 10px; }
 
 </style>
 <script>
@@ -2062,21 +2063,13 @@ body { background: transparent; min-height: 100dvh; }
     return `<input id="am-q" type="search" placeholder="Rezept suchen" value="${esc(ui.sheet.q || "")}" data-input="amq" aria-label="Rezept suchen">
       <div class="minilist">${rs.map((r) => `<div><span><b>${esc(r.title)}</b><br><span class="note">${kcal(r.nut.perPortion.kcal)} kcal je Portion</span></span><button class="btn sm primary" data-act="weekPick" data-id="${r.id}">Wählen</button></div>`).join("") || `<div class="note">Keine Rezepte gefunden.</div>`}</div>`;
   }
-  /** Verbrauch (Ruhe + Aktivität, aus Apple Health) gegenüber dem Gegessenen – nur zum Vergleichen, das Tagesbudget bleibt unberührt. */
-  function balanceCard(d) {
-    const bn = d.burn; if (!bn) return "";
-    const total = (bn.rest || 0) + (bn.active || 0), eaten = d.budget.eaten, diff = Math.round(total - eaten), rem = d.budget.remaining;
-    const live = d.date === store.today(), at = bn.at ? new Date(bn.at) : null;
-    const hhmm = at ? String(at.getHours()).padStart(2, "0") + ":" + String(at.getMinutes()).padStart(2, "0") : "";
-    const part = bn.rest == null || bn.active == null;
-    const parts = [bn.rest != null ? "Ruhe " + de(bn.rest) : "", bn.active != null ? "Aktiv " + de(bn.active) : ""].filter(Boolean).join(" + ");
-    return `<section class="card bal"><h3>${live ? "Heute verbraucht" : "Verbraucht"}</h3>
-      <div class="bigline"><b>${de(total)}</b><span>kcal${live ? " bisher" : ""}</span></div>
-      <div class="note">${parts}${live && hhmm ? " · Stand " + hhmm : ""}${part ? " · nur ein Teil des Verbrauchs vorhanden" : ""}</div>
-      <div class="minilist"><div><span>Gegessen</span><b>${de(eaten)} kcal</b></div>
-        <div><span>${diff >= 0 ? "Defizit" : "Überschuss"}</span><b class="${diff >= 0 ? "ok" : "bad"}">${de(Math.abs(diff))} kcal</b></div>
-        ${rem != null ? `<div><span>Noch verfügbar (Tagesziel)</span><b>${de(Math.max(0, rem))} kcal</b></div>` : ""}</div>
-      ${live ? `<div class="note">Der Verbrauch steigt im Lauf des Tages, das Defizit ändert sich mit.</div>` : ""}</section>`;
+  /** Drei Kennzahlen, nicht mehr: Gesamtverbrauch pro Tag, heute verbraucht (Ruhe + Aktivität aus Apple Health), noch verfügbar. */
+  function kpiCard(d, e) {
+    const bn = d.burn, burned = bn ? (bn.rest || 0) + (bn.active || 0) : null, rem = d.budget.remaining;
+    return `<section class="kpis" aria-label="Kennzahlen"><div class="stats">
+        <div class="stat"><b>${e && e.tdee != null ? de(e.tdee) : "–"}</b><span>Gesamtverbrauch pro Tag (kcal)</span></div>
+        <div class="stat"><b>${burned != null ? de(burned) : "–"}</b><span>Heute verbraucht (kcal)</span></div></div>
+      <div class="pot ${rem != null && rem < 0 ? "over" : ""}"><div class="eyebrow">Noch verfügbar</div><div class="head"><div class="big">${rem == null ? "–" : de(rem)}<small>kcal</small></div></div></div></section>`;
   }
 
   function vTag() {
@@ -2094,28 +2087,7 @@ body { background: transparent; min-height: 100dvh; }
     const eatenPct = total ? Math.round((b.eaten / total) * 100) : 0;
     const over = b.remaining != null && b.remaining < 0;
     const planOver = b.afterPlan != null && b.afterPlan < 0;
-    if (st.goalKcal != null) extra += `<section class="card" aria-label="Kalorienbudget">
-      <div class="row"><div><h2>Kalorien heute</h2><div class="sub">${st.goalKcal != null ? `Ziel ${de(st.goalKcal)} kcal${b.sport ? ` · Sport +${de(b.sport)}` : ""}${st.frozen ? "" : ""}` : "Ziel: keine Angabe"}</div></div>
-      ${ring(total ? de(eatenPct) + "%" : "–", eatenPct, over ? "bad" : eatenPct > 85 ? "low" : "hi", "gegessen")}</div>
-      <div class="chips">${b.remaining == null ? `<span class="chip">Budget: keine Angabe</span>` : over ? `<span class="chip bad">überschritten</span>` : planOver ? `<span class="chip warn">Plan zu groß</span>` : `<span class="chip ok">im Budget</span>`}
-        ${st.sportDone ? `<span class="chip acc">Sport ✓</span>` : ""}${st.complete ? `<span class="chip line">vollständig erfasst</span>` : ""}
-        ${d.unknown ? `<span class="chip warn">Werte unvollständig</span>` : ""}</div>
-      <div class="strip"><span class="eyebrow">Tag</span>
-        <div class="v"><b>${kcal(st.goalKcal)}</b><small>Ziel</small></div><span class="sep">›</span>
-        <div class="v"><b>${de(b.eaten)}</b><small>gegessen</small></div><span class="sep">›</span>
-        <div class="v"><b>${de(b.planned)}</b><small>geplant</small></div><span class="sep">›</span>
-        <div class="v"><b>+${de(b.sport)}</b><small>Sport</small></div></div>
-      <div class="pot ${over ? "over" : ""}">
-        <div class="eyebrow">Noch frei</div>
-        <div class="head"><div class="big">${b.remaining == null ? "–" : de(b.remaining)}<small>kcal</small></div>
-          <div class="side"><b class="${planOver ? "neg" : ""}">≈ ${b.afterPlan == null ? "–" : de(b.afterPlan)} kcal</b><span>nach Plan</span></div></div>
-        ${track(total, b.eaten, b.planned, { pin: true, flag: b.eaten + b.planned <= total ? b.eaten + b.planned : null })}
-        <div class="legend"><span>0</span><span><i style="background:var(--accent)"></i>gegessen</span><span><i style="background:var(--accent-2)"></i>geplant</span><span>${total ? "Budget " + de(total) : ""}</span></div>
-      </div>
-      ${b.eatenUnknown || b.plannedUnknown ? `<div class="note">${b.eatenUnknown ? `${b.eatenUnknown} gegessene Mahlzeit(en) ohne Kalorienwert – nicht eingerechnet. ` : ""}${b.plannedUnknown ? `${b.plannedUnknown} geplante ohne Wert.` : ""}</div>` : ""}
-      <div class="macros">${[["protein", "Protein"], ["carbs", "Kohlenhydrate"], ["fat", "Fett"]].map(([k, t]) => `<div class="macro"><span>${t}</span><b>${de(d.macros[k].eaten)} g</b>${d.macros[k].planned ? `<span>+${de(d.macros[k].planned)} g geplant</span>` : `<span>&nbsp;</span>`}</div>`).join("")}</div>
-      ${e && e.warnings.length ? `<div class="notice">${esc(e.warnings.join(" "))}</div>` : ""}
-    </section>`;
+
 
     let out = "";
     // Abendessen zuerst und groß, dann die übrigen Mahlzeiten
@@ -2128,16 +2100,8 @@ body { background: transparent; min-height: 100dvh; }
         ${s.meals.length ? s.meals.map(mealRow).join("") : `<div class="note">${key === "abend" ? "Noch nichts geplant. Unter „Entdecken“ erst Favoriten sammeln, dann daraus fürs Kochen wählen – oder einen Eintrag anlegen." : "Kein Eintrag."}${key === "abend" ? `<div><button class="btn sm primary" data-act="view" data-v="radar" style="margin-top:8px">Zu „Neu“ wechseln</button></div>` : ""}</div>`}</section>`;
     }
 
-    // Sport
-    extra += `<section class="slot"><div class="slot-head"><h3>Sport</h3><button class="btn sm" data-act="addSport">${ic("plus", 16)} Aktivität</button></div>
-      <button class="toggle" data-act="flag" data-flag="sportDone" aria-pressed="${st.sportDone}"><span><b>Sport gemacht</b><br><span class="note">Nur Dokumentation – bringt allein keine Kalorien.</span></span><span class="sw"></span></button>
-      ${d.activities.map((a) => `<div class="minilist"><div><span><b>${esc(a.kindName)}</b>${a.minutes ? " · " + de(a.minutes) + " Min" : ""}${a.intensity ? " · " + esc(a.intensity) : ""}<br><span class="note">${a.kcal ? `${de(a.kcal)} kcal · ${esc(a.kcalSource)}` : "kein Verbrauchswert – nicht angerechnet"}</span></span>
-        <button class="btn sm ghost" data-act="delSport" data-id="${a.id}" aria-label="Aktivität entfernen">${ic("trash", 16)}</button></div></div>`).join("")}
-      ${d.activities.length && st.sportCreditPct < 100 ? `<div class="note">Angerechnet werden ${st.sportCreditPct} % der Verbrauchswerte (Profileinstellung).</div>` : ""}</section>`;
-
     extra += `<button class="toggle" data-act="flag" data-flag="complete" aria-pressed="${st.complete}"><span><b>Tag vollständig erfasst</b><br><span class="note">Nur vollständige Tage zählen in Statistik und Zielerreichung.</span></span><span class="sw"></span></button>`;
-    const openX = ui.open.has("extras");
-    return out + balanceCard(d) + `<section class="slot extras"><button class="toggle" data-act="toggleExtras" aria-expanded="${openX}"><span><b>Extras: Kalorien und Sport</b><br><span class="note">${st.goalKcal != null ? `${de(b.eaten)} kcal gegessen · ` : ""}optional, nicht der Fokus</span></span><span>${openX ? "▴" : "▾"}</span></button></section>${openX ? extra : ""}`;
+    return kpiCard(d, e) + out + extra;
   }
 
   function mealRow(m) {
@@ -2578,6 +2542,10 @@ Regeln:
       <section class="card"><h2>Apple Health</h2>
         <div class="sub">Der iPhone-Kurzbefehl schickt Gewicht und Workouts an Foody. Die App übernimmt sie beim Öffnen${open ? ` (jetzt ${open} wartend)` : ""}.</div>
         <div class="note">Übernommen wird nur, was einen echten Wert hat: Gewicht zwischen 20 und 300 kg, Workouts nur mit Kalorienwert. Foody schätzt nichts.</div></section>
+      <section class="card"><h3>Jetzt aktualisieren</h3>
+        <div class="note">Startet deinen Kurzbefehl von hier. iOS wechselt kurz zu Kurzbefehle und wieder zurück. Name genau wie in der Kurzbefehle-App eintragen.</div>
+        <input id="hk-name" class="inp" placeholder="Name des Kurzbefehls" autocomplete="off" value="${esc(LS.get("hkname", ""))}">
+        <button class="btn" data-act="hkRun">Kurzbefehl starten</button></section>
       <section class="card"><h3>1. Einmalig: Geheimwort setzen</h3><div class="note">In Supabase unter Edge Functions → Secrets ein Secret <b>HEALTH_KEY</b> mit einem selbst gewählten langen Wort anlegen.</div></section>
       <section class="card"><h3>2. Kurzbefehl bauen</h3>
         <div class="note">Kurzbefehle → Automation → Persönlich: „Tageszeit“ (z. B. 21:00) oder „Workout beenden“. Aktionen: „Health-Werte suchen“ (Gewicht bzw. Workouts), danach „Inhalte von URL abrufen“ mit diesen Angaben:</div>
@@ -2954,6 +2922,7 @@ Regeln:
       const p = Math.max(0.5, Math.round((m.portions + Number(t.dataset.d)) * 4) / 4);
       if (p !== m.portions) await store.updateMeal(ui.pid, ui.date, m.id, { portions: p });
     }),
+    hkRun: () => { const el = document.getElementById("hk-name"), n = el ? el.value.trim() : ""; if (!n) { toast("Bitte den Namen des Kurzbefehls eintragen."); return; } LS.set("hkname", n); window.location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent(n); },
     copyText: async (t) => { try { await navigator.clipboard.writeText(t.dataset.text); toast("Kopiert"); } catch (e) { toast("Kopieren nicht möglich in dieser Ansicht."); } },
     rbShift: (t) => { const e = L.addDays(ui.rbEnd || today(), Number(t.dataset.n)); ui.rbEnd = e >= today() ? null : e; schedule(); },
     hmode: (t) => { ui.hmode = t.dataset.v; LS.set("hmode", ui.hmode); schedule(); },
