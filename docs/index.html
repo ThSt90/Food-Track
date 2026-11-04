@@ -457,9 +457,10 @@ body { background: transparent; min-height: 100dvh; }
 .cook-voice > :nth-child(3) { grid-column: 1 / -1; }
 .cook-reply.live { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); animation: cookpulse 1.4s ease-in-out infinite; } @keyframes cookpulse { 50% { box-shadow: 0 0 0 7px transparent; } }
 .cook-voice > :first-child:nth-last-child(1), .cook-voice > :nth-child(2):last-child { grid-column: auto; }
+.meal[data-mid] { touch-action: pan-y; } .meal.swipe-del { background: var(--bad-soft); border-color: var(--bad); }
 
 </style>
-<script>window.FR_BUILD="04.11. 20:48";</script>
+<script>window.FR_BUILD="04.11. 21:05";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -708,6 +709,7 @@ body { background: transparent; min-height: 100dvh; }
     };
     root.FR_PHOTO = (image, text) => aiCall("meal-photo", { image, text });
     root.FR_CHAT = (body) => aiCall("cook-chat", body);
+    root.FR_LIVE = (body) => aiCall("live-session", body);
     root.FR_TEXT = (text) => aiCall("meal-text", { text });
     const downloads = { async save({ filename, data }) {
       const b = new Blob([typeof data === "string" ? data : JSON.stringify(data)], { type: "application/json" });
@@ -1414,12 +1416,14 @@ body { background: transparent; min-height: 100dvh; }
     async function syncPlan(pid, date) {
       const dd = dayDoc(pid, date), cur = {};
       for (const [id, m] of live(dd && dd.meals)) if (m.recipeId && !m.from) cur[id] = { pid, who: (profile(pid) || {}).name || "", slot: m.slot, recipeId: m.recipeId, title: m.title || "", servings: m.servings > 0 ? m.servings : 4, status: m.status };
+      const hasMeal = new Set(Object.values(cur).map((x) => x.recipeId));
+      for (const e of radarEntries(pid, date)) if ((e.status === "favorit" || e.status === "vorgemerkt") && S.recipes[e.rid] && !hasMeal.has(e.rid)) cur[`sel-${pid}-${e.rid}`] = { pid, who: (profile(pid) || {}).name || "", slot: null, recipeId: e.rid, title: S.recipes[e.rid].title || "", servings: 4, status: "ausgewaehlt" };
       const old = ((S.plan && S.plan[date]) || {}).meals || {}, change = {};
       for (const id of Object.keys(cur)) if (JSON.stringify(old[id]) !== JSON.stringify(cur[id])) change[id] = cur[id];
       for (const [id, e] of live(old)) if (e.pid === pid && !cur[id]) change[id] = null;
       if (Object.keys(change).length) await patch("plan/" + date, { meals: {} }, { meals: change });
     }
-    const dayPatch = async (pid, date, change) => { const r = await patch("days/" + dayKey(pid, date), dayBase(pid, date), change); if (change && change.meals) await syncPlan(pid, date); return r; };
+    const dayPatch = async (pid, date, change) => { const r = await patch("days/" + dayKey(pid, date), dayBase(pid, date), change); if (change && (change.meals || change.radar)) await syncPlan(pid, date); return r; };
     const adopting = new Set();
     /** Gerichte der Partnerin (heute und später) landen automatisch auch in meinem Tag; einmal entfernte kommen nicht wieder. */
     async function adoptPartner(pid) {
@@ -1429,14 +1433,41 @@ body { background: transparent; min-height: 100dvh; }
         for (const [date, pl] of Object.entries(S.plan || {})) {
           if (date < t0 || !pl || !pl.meals) continue;
           for (const [pmid, m] of live(pl.meals)) {
+            if (String(pmid).startsWith("sel-")) continue;
             if (m.pid === pid || !m.recipeId || m.status === "gegessen" || !S.recipes[m.recipeId]) continue;
             const dd = dayDoc(pid, date), own = live(dd && dd.meals).map(([, x]) => x);
-            if ((dd && dd.ptSkip && dd.ptSkip[pmid]) || own.some((x) => x.from === pmid || (x.recipeId === m.recipeId && x.slot === m.slot))) continue;
+            if ((dd && dd.ptSkip && dd.ptSkip[pmid]) || own.some((x) => x.from === pmid || x.recipeId === m.recipeId)) continue;
             await addMeal(pid, date, m.slot, { id: "pt-" + pmid, recipeId: m.recipeId, status: "geplant", servings: m.servings, from: pmid }); n++;
           }
         }
       } finally { adopting.delete(pid); }
       return n;
+    }
+    const matching = new Set();
+    /** Match: Haben beide dasselbe Gericht ausgewählt (engere Auswahl oder vorgemerkt), wird es bei beiden fest geplant (zum Kochen), einmalig je Tag. */
+    async function autoMatch(pid) {
+      const found = [];
+      if (matching.has(pid)) return found; matching.add(pid);
+      try {
+        const t0 = today();
+        for (const [date, pl] of Object.entries(S.plan || {})) {
+          if (date < t0 || !pl || !pl.meals) continue;
+          for (const [pmid, m] of live(pl.meals)) {
+            if (m.pid === pid || !m.recipeId || m.status === "gegessen") continue;
+            const rid = m.recipeId, r = S.recipes[rid]; if (!r) continue;
+            const dd = dayDoc(pid, date), mine = live(dd && dd.meals).find(([, x]) => x.recipeId === rid), rad = (dd && dd.radar && dd.radar[rid]) || null;
+            const ownSel = rad && (rad.status === "favorit" || rad.status === "vorgemerkt");
+            if (mine) {
+              if (mine[1].status !== "vorgemerkt") continue;
+              await dayPatch(pid, date, { meals: { [mine[0]]: { status: "geplant" } } });
+            } else if (ownSel) {
+              await addMeal(pid, date, m.slot || slotForCategory(r.category, now().getHours()), { id: "match-" + rid, recipeId: rid, status: "geplant", servings: m.servings });
+            } else continue;
+            found.push({ rid, title: r.title, who: m.who || "" });
+          }
+        }
+      } finally { matching.delete(pid); }
+      return found;
     }
     let planBackfilled = false;
     /** Einmal pro Sitzung: eigene Tage ab heute in den gemeinsamen Plan übernehmen (für Gerichte, die vor der Trennung geplant wurden). */
@@ -1445,7 +1476,7 @@ body { background: transparent; min-height: 100dvh; }
       for (const d of Object.values(S.days)) if (d && d.pid === pid && d.date >= t0) await syncPlan(pid, d.date);
     }
     /** Gerichte der anderen Person an diesem Tag (aus dem gemeinsamen Plan). */
-    const partnerPlan = (pid, date) => live(((S.plan && S.plan[date]) || {}).meals).filter(([, m]) => m.pid !== pid).map(([id, m]) => ({ id, ...m })).sort((a, b) => String(a.slot).localeCompare(String(b.slot)));
+    const partnerPlan = (pid, date) => live(((S.plan && S.plan[date]) || {}).meals).filter(([id, m]) => m.pid !== pid && !String(id).startsWith("sel-")).map(([id, m]) => ({ id, ...m })).sort((a, b) => String(a.slot).localeCompare(String(b.slot)));
 
     /** Profiländerungen gelten ab heute; vergangene Tage behalten ihre eingefrorenen Werte. */
     async function refreshDaySnapshots(pid) {
@@ -1717,7 +1748,7 @@ body { background: transparent; min-height: 100dvh; }
     /** Gerichte, die eine andere Person heute in der engeren Auswahl oder schon vorgemerkt hat -> Name. */
     function radarMatches(pid, date) {
       const out = {};
-      for (const m of partnerPlan(pid, date)) if (m.status === "vorgemerkt") (out[m.recipeId] = out[m.recipeId] || []).push(m.who);
+      for (const [id, m] of live(((S.plan && S.plan[date]) || {}).meals)) if (m.pid !== pid && m.recipeId && (m.status === "vorgemerkt" || String(id).startsWith("sel-"))) (out[m.recipeId] = out[m.recipeId] || []).push(m.who);
       return out;
     }
     const radarFavCount = (pid, date, filter = {}) => radarStack(pid, date, { ...filter, stage: "fav" }).length;
@@ -1797,6 +1828,7 @@ body { background: transparent; min-height: 100dvh; }
       const lines = [];
       let mealCount = 0; const mealList = [];
       for (const day_ of dates) for (const [mid, m] of live(((S.plan && S.plan[day_]) || {}).meals)) {
+        if (String(mid).startsWith("sel-")) continue;
         if (scope !== "alle" && m.pid !== scope) continue;
         const pid = m.pid, r = m.recipeId ? S.recipes[m.recipeId] : null;
         if (!r) continue;
@@ -1953,7 +1985,7 @@ body { background: transparent; min-height: 100dvh; }
 
     return {
       linkImports, addLinkImport, restoreRecipe, setImportRecipe, setImportStatus, deleteImport,
-      S, subscribe, mondayOf, radarMatches, partnerPlan, backfillPlan, adoptPartner, addMealRequest, mealRequests, applyMealResults, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
+      S, subscribe, mondayOf, radarMatches, partnerPlan, backfillPlan, adoptPartner, autoMatch, addMealRequest, mealRequests, applyMealResults, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
       profiles, profile, createDefaultProfiles, saveProfile, energyFor, currentWeight,
       dayDoc, daySettings, setDayFlag, day, meals, addMeal, setMealStatus, updateMeal, resnapshotMeal, deleteMeal,
       foodList, foodMap, recipes, recipe, saveRecipe, deleteRecipe, findDuplicates, toggleFavorite, favSet,
@@ -2124,7 +2156,7 @@ body { background: transparent; min-height: 100dvh; }
   }
   let toastTimer = null;
   // Keine Bestätigungs-Popups: nur Fehler, Warnungen und die zwei Hinweise, die sonst fehlen würden
-  const TOAST_OK = /^(Kopiert|\d+ Werte? aus Apple|Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|\d+ Mahlzeit|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|„.*“ gelöscht)/;
+  const TOAST_OK = /^(Kopiert|\d+ Werte? aus Apple|Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|\d+ Mahlzeit|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|Match|„.*“ gelöscht)/;
   function toast(text, undo) { if (!TOAST_OK.test(String(text))) return; ui.toast = { text, undo }; renderToast(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { ui.toast = null; renderToast(); }, undo ? 6000 : 3000); }
 
   // ================================================================== Gemeinsame Bausteine
@@ -2231,7 +2263,7 @@ body { background: transparent; min-height: 100dvh; }
       ? `${portions}<button class="btn sm ghost" data-act="status" data-id="${m.id}" data-s="geplant">Doch nicht gegessen</button>${m.recipeChanged ? `<button class="btn sm" data-act="resnap" data-id="${m.id}">Neue Rezeptwerte übernehmen</button>` : ""}`
       : `${m.recipeId ? `<button class="btn sm" data-act="cookStart" data-id="${m.recipeId}" data-sv="${m.servings > 0 ? m.servings : 4}">Kochmodus</button>` : ""}<button class="btn sm primary" data-act="status" data-id="${m.id}" data-s="gegessen">${ic("check", 16)} Gegessen</button>${portions}${m.recipeId ? `<div class="stepper" role="group" aria-label="Kochen für"><button data-act="svMeal" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button><span>Kochen für ${deA(m.servings > 0 ? m.servings : 4)}</span><button data-act="svMeal" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></div>` : ""}
          `;
-    return `<div class="meal ${m.status === "gegessen" ? "eaten" : ""}">
+    return `<div class="meal ${m.status === "gegessen" ? "eaten" : ""}" ${m.status === "gegessen" ? "" : `data-mid="${m.id}"`}>
       ${img(m.image, "", m.title)}
       <div><div class="t">${m.recipeExists ? `<button class="link" style="padding:0;text-align:left" data-act="openRecipe" data-id="${m.recipeId}">${esc(m.title)}</button>` : esc(m.title)}</div>
         <div class="m"><span class="status ${m.status}">${statusTxt}</span>${m.quality !== "original" && m.quality !== "berechnet" ? qualityChip(m.quality) : ""}${m.recipeChanged ? `<span class="chip warn">Rezept geändert</span>` : ""}</div></div>
@@ -2846,6 +2878,30 @@ Regeln:
   const EMPH = /(\d+(?:[.,]\d+)?(?:\s?[–-]\s?\d+(?:[.,]\d+)?)?\s?(?:°\s?C|Minuten|Minute|Min\.?|Stunden|Stunde|Std\.?|Sekunden|Sek\.?)(?![A-Za-zäöüß]))/g;
   const emph = (t) => esc(t).replace(EMPH, "<b>$1</b>");
 
+  // ---- Eintrag nach links wegwischen = entfernen (nur nicht gegessene Mahlzeiten)
+  (function () {
+    let g = null;
+    document.addEventListener("pointerdown", (e) => {
+      const el = e.target.closest && e.target.closest(".meal[data-mid]");
+      if (!el || e.target.closest("button, a, input, select, textarea") || (e.pointerType === "mouse" && e.button !== 0)) { g = null; return; }
+      g = { el, id: el.dataset.mid, x: e.clientX, y: e.clientY, dx: 0, on: false, pid: e.pointerId };
+    });
+    document.addEventListener("pointermove", (e) => {
+      if (!g || e.pointerId !== g.pid) return;
+      const dx = e.clientX - g.x, dy = e.clientY - g.y;
+      if (!g.on && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5) { g.on = true; try { g.el.setPointerCapture(e.pointerId); } catch (x) { /* egal */ } }
+      if (!g.on) return;
+      g.dx = Math.min(0, dx); g.el.style.transition = "none"; g.el.style.transform = `translateX(${g.dx}px)`; g.el.classList.toggle("swipe-del", g.dx < -90);
+    });
+    const end = async (e) => {
+      if (!g || e.pointerId !== g.pid) return; const t = g; g = null; if (!t.on) return;
+      t.el.style.transition = "transform .18s ease, opacity .18s ease";
+      if (t.dx < -90) { t.el.style.transform = "translateX(-110%)"; t.el.style.opacity = "0"; await new Promise((r) => setTimeout(r, 180)); await run("meal:" + t.id, async () => { await store.deleteMeal(ui.pid, ui.date, t.id); }); }
+      else { t.el.style.transform = ""; t.el.classList.remove("swipe-del"); }
+    };
+    document.addEventListener("pointerup", end); document.addEventListener("pointercancel", end);
+  })();
+
   // ================================================================== Kochmodus: Sprache und Gespräch
   const getSR = () => window.SpeechRecognition || window.webkitSpeechRecognition;
   const aiChat = () => !!(window.FR_CHAT && window.FR_CONFIG && window.FR_CONFIG.ai === "api");
@@ -2870,7 +2926,7 @@ Regeln:
     });
   }
   function say(text) {
-    const c = ui.cook; if (!c || !text || !window.speechSynthesis || !(c.speak !== false || c.convo)) return chain;
+    const c = ui.cook; if (!c || c.live || !text || !window.speechSynthesis || !(c.speak !== false || c.convo)) return chain;
     const my = epoch; c.status = "speak";
     if (c.convo && recog) { stopListen(); c.listening = false; }
     chain = chain.then(() => (my === epoch ? speakOnce(text) : null));
@@ -2881,16 +2937,16 @@ Regeln:
   function silence() { epoch++; chain = Promise.resolve(); try { speechSynthesis.cancel(); } catch (e) { /* egal */ } }
   function stopListen() { const rc = recog; recog = null; if (rc) { rc.onend = null; rc.onresult = null; rc.onerror = null; try { rc.abort(); } catch (e) { /* egal */ } } }
   function cookReply(text) { const c = ui.cook; if (!c) return; c.reply = text; c.log = (c.log || []).concat({ role: "assistant", content: text }).slice(-8); c.busy = false; renderCook(); say(text); }
-  function cookGo(step) {
+  function cookGo(step, quiet) {
     const c = ui.cook; if (!c) return; const { steps } = cookData();
-    c.tab = "steps"; c.step = Math.max(0, Math.min(steps.length - 1, step)); c.reply = ""; renderCook(); say(`Schritt ${c.step + 1}. ${steps[c.step]}`);
+    c.tab = "steps"; c.step = Math.max(0, Math.min(steps.length - 1, step)); if (!c.live) c.reply = ""; renderCook(); if (quiet || c.live) return; say(`Schritt ${c.step + 1}. ${steps[c.step]}`);
   }
   function timerTick() {
     const c = ui.cook, el = document.getElementById("cook-timer");
     if (!c || !c.timer) { clearInterval(tick); tick = null; return; }
     const left = Math.max(0, Math.round((c.timer.end - Date.now()) / 1000));
     if (el) el.textContent = "⏱ " + Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
-    if (left <= 0) { c.timer = null; clearInterval(tick); tick = null; try { navigator.vibrate && navigator.vibrate([300, 150, 300]); } catch (e) { /* egal */ } cookReply("Der Timer ist abgelaufen."); }
+    if (left <= 0) { c.timer = null; clearInterval(tick); tick = null; try { navigator.vibrate && navigator.vibrate([300, 150, 300]); } catch (e) { /* egal */ } if (c.live) liveNote("commentary", "Der Timer ist abgelaufen. Sag dem Nutzer kurz Bescheid."); else cookReply("Der Timer ist abgelaufen."); }
   }
   function cookTimer(sec) {
     const c = ui.cook; if (!c || !(sec > 0)) return; c.timer = { end: Date.now() + sec * 1000 };
@@ -2928,6 +2984,100 @@ Regeln:
       if (o.action === "next") cookGo(i + 1); else if (o.action === "prev") cookGo(i - 1); else if (o.action === "goto" && o.step) cookGo(o.step - 1);
       cookReply(o.answer || "Das habe ich nicht verstanden.");
     } catch (err) { if (ui.cook) cookReply("Das hat gerade nicht geklappt: " + (err && err.message ? err.message : "Fehler")); }
+  }
+
+  // ---- Gespräch mit GPT-Live (OpenAI, WebRTC): natürliche Stimme, hört durchgehend zu, Apple-Sprache bleibt als Rückfall
+  const liveOn = () => !!(window.FR_LIVE && window.FR_CONFIG && window.FR_CONFIG.ai === "api" && window.RTCPeerConnection && navigator.mediaDevices);
+  let live = null, liveN = 0, livePaint = 0;
+  const liveSend = (o, delegation) => { const L = live; if (!L || !L.dc || L.dc.readyState !== "open") return; try { L.dc.send(JSON.stringify({ event_id: "f" + ++liveN, ...o, ...(delegation ? { delegation_id: delegation } : {}) })); } catch (e) { /* egal */ } };
+  const liveNote = (kind, text) => liveSend({ type: "session." + kind + ".append", delegation_id: null, content: String(text).slice(0, 1500) });
+  const liveRender = () => { if (livePaint) return; livePaint = requestAnimationFrame(() => { livePaint = 0; if (ui.cook) renderCook(); }); };
+  function liveContext() { const { r, steps, ings } = cookData(), c = ui.cook; return { title: r.title, servings: c.sv, step: c.step, steps, ingredients: ings.map((x) => (x.q + " " + x.name).trim()) }; }
+  function liveCleanup() {
+    const L = live; live = null; if (!L) return;
+    (L.timers || []).forEach((t) => { clearInterval(t); clearTimeout(t); });
+    try { L.stream && L.stream.getTracks().forEach((t) => t.stop()); } catch (e) { /* egal */ }
+    try { L.dc && L.dc.close(); } catch (e) { /* egal */ }
+    try { L.pc && L.pc.close(); } catch (e) { /* egal */ }
+    try { L.audio && (L.audio.srcObject = null, L.audio.remove()); } catch (e) { /* egal */ }
+  }
+  function liveStop(msg) {
+    const L = live, c = ui.cook; if (!L) return; L.closing = true;
+    liveSend({ type: "session.close" });
+    setTimeout(liveCleanup, 500);
+    if (c) { c.convo = false; c.live = false; c.status = ""; c.listening = false; c.reply = msg || ""; renderCook(); }
+  }
+  function liveFail(err) {
+    const c = ui.cook, msg = err && err.message ? err.message : "Verbindung nicht möglich.";
+    liveCleanup(); if (!c) return;
+    c.live = false; c.convo = false; c.status = "";
+    if (/Permission|NotAllowed|denied|erlaubt/i.test(String(err && (err.name + " " + err.message)))) { c.reply = "Mikrofon nicht erlaubt. Erlaube es in den iPhone-Einstellungen für Safari, dann starte das Gespräch neu."; renderCook(); return; }
+    console.error("GPT-Live:", err);
+    c.reply = "Die GPT-Stimme ist gerade nicht erreichbar (" + msg + "). Ich nehme die Stimme des iPhones."; renderCook();
+    setTimeout(() => { if (ui.cook && !ui.cook.convo) appleStart(); }, 400);
+  }
+  async function liveStart() {
+    const c = ui.cook; if (!c) return;
+    c.convo = true; c.live = true; c.status = "connect"; c.reply = ""; c.heard = ""; c.tab = "steps"; renderCook();
+    const L = live = { pc: null, dc: null, audio: null, stream: null, started: false, closing: false, last: Date.now(), t0: Date.now(), seen: new Set(), timers: [], side: "" };
+    try {
+      const pc = new RTCPeerConnection(); L.pc = pc;
+      const audio = document.createElement("audio"); audio.autoplay = true; audio.setAttribute("playsinline", ""); audio.style.display = "none"; document.body.appendChild(audio); L.audio = audio;
+      pc.addEventListener("track", (e) => { audio.srcObject = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]); audio.play().catch(() => {}); });
+      L.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      for (const t of L.stream.getAudioTracks()) pc.addTrack(t, L.stream);
+      const dc = pc.createDataChannel("oai-events"); L.dc = dc;
+      dc.onmessage = (e) => { try { liveEvent(JSON.parse(e.data)); } catch (x) { /* egal */ } };
+      dc.onclose = () => { if (live === L && !L.closing) liveStop("Verbindung beendet."); };
+      pc.onconnectionstatechange = () => { if (live === L && !L.closing && (pc.connectionState === "failed" || pc.connectionState === "closed")) liveStop("Verbindung getrennt."); };
+      await pc.setLocalDescription(await pc.createOffer());
+      await new Promise((res) => { if (pc.iceGatheringState === "complete") return res(); pc.addEventListener("icegatheringstatechange", () => pc.iceGatheringState === "complete" && res()); setTimeout(res, 2500); });
+      const ans = await window.FR_LIVE({ sdp: pc.localDescription.sdp, context: liveContext() });
+      if (!ans || !ans.sdp) throw new Error(ans && ans.error ? ans.error : "keine Antwort");
+      if (live !== L) return;
+      await pc.setRemoteDescription({ type: "answer", sdp: ans.sdp });
+      L.timers.push(setInterval(() => {
+        if (live !== L) return;
+        if (Date.now() - L.last > 240000) liveStop("Ich habe 4 Minuten nichts gehört. Gespräch beendet.");
+        else if (Date.now() - L.t0 > 45 * 60000) liveStop("Gespräch nach 45 Minuten beendet.");
+      }, 15000));
+      L.timers.push(setTimeout(() => { if (live === L && !L.started) { liveFail(new Error("Zeitüberschreitung")); } }, 15000));
+    } catch (err) { if (live === L || !live) liveFail(err); }
+  }
+  function liveToolRun(name, a) {
+    const c = ui.cook; if (!c) return { error: "kein Kochmodus" };
+    const { steps } = cookData(), at = (k) => ({ step: k + 1, of: steps.length, text: steps[k] });
+    if (name === "next_step" || name === "previous_step" || name === "go_to_step") {
+      const to = name === "next_step" ? c.step + 1 : name === "previous_step" ? c.step - 1 : (Number(a && a.step) || 1) - 1;
+      if (to < 0) return { ...at(c.step), hinweis: "Das ist schon der erste Schritt." };
+      if (to >= steps.length) return { ...at(c.step), hinweis: "Das war schon der letzte Schritt." };
+      cookGo(to, true); return at(to);
+    }
+    if (name === "start_timer") { const m = Number(a && a.minutes); if (!(m > 0 && m <= 180)) return { error: "Minuten ungültig" }; cookTimer(Math.round(m * 60)); return { ok: true, minuten: m }; }
+    if (name === "stop_timer") { c.timer = null; clearInterval(tick); tick = null; renderCook(); return { ok: true }; }
+    if (name === "end_conversation") { setTimeout(() => liveStop("Gespräch beendet. Guten Appetit!"), 2500); return { ok: true }; }
+    return { error: "unbekanntes Werkzeug" };
+  }
+  function liveEvent(m) {
+    const c = ui.cook, L = live; if (!c || !L || !m) return;
+    const t = m.type;
+    if (t === "session.started") { L.started = true; c.status = "listen"; liveRender(); return; }
+    if (t === "session.input_transcript.delta" || t === "session.output_transcript.delta") {
+      const side = t === "session.input_transcript.delta" ? "in" : "out"; L.last = Date.now();
+      if (L.side !== side) { L.side = side; if (side === "in") c.heard = ""; else c.reply = ""; }
+      if (side === "in") { c.heard += m.delta || ""; c.status = "listen"; } else { c.reply += m.delta || ""; c.status = "speak"; }
+      liveRender(); return;
+    }
+    if (t === "session.closed") { if (live === L) liveStop(); return; }
+    if (t === "error") { if (!L.started) liveFail(new Error(m.error && m.error.message ? m.error.message : "Fehler")); else console.error("GPT-Live error", m.error); return; }
+    const ev = t === "response.event" ? m.event : m;
+    if (ev && ev.type === "response.output_item.done" && ev.item && ev.item.type === "function_call") {
+      const id = ev.item.call_id || ev.item.id; if (L.seen.has(id)) return; L.seen.add(id);
+      let args = {}; try { args = JSON.parse(ev.item.arguments || "{}"); } catch (x) { /* leer */ }
+      const out = liveToolRun(ev.item.name, args), del = m.delegation_id || ev.delegation_id || null;
+      liveSend({ type: "response.item.create", item: { type: "function_call_output", call_id: ev.item.call_id, output: JSON.stringify(out) } }, del);
+      liveSend({ type: "response.create" }, del);
+    }
   }
 
   /** Eine Runde im Gespräch: auswerten, antworten, ausreden lassen, wieder zuhören. */
@@ -2968,15 +3118,19 @@ Regeln:
     c.listening = true; c.status = "listen"; c.reply = ""; renderCook();
     try { rc.start(); } catch (e) { recog = null; c.listening = false; setTimeout(convoListen, 600); }
   }
-  function convoToggle() {
+  function appleStart() {
     const c = ui.cook; if (!c) return;
-    if (c.convo) { silence(); convoStop("Gespräch beendet."); return; }
     const SR = getSR();
     if (!SR) { toast("Spracherkennung gibt es hier nicht. Tipp stattdessen unten und nutze das Mikrofon der Tastatur."); return; }
     c.convo = true; c.empty = 0; c.heard = ""; c.reply = ""; c.tab = "steps"; renderCook();
     const { steps } = cookData();
     say(`Gespräch gestartet. Wir sind bei Schritt ${c.step + 1} von ${steps.length}. ${steps[c.step]} Sag zum Beispiel: weiter, wiederholen oder stell mir eine Frage.`);
     speakIdle().then(() => { if (ui.cook && ui.cook.convo) convoListen(); });
+  }
+  function convoToggle() {
+    const c = ui.cook; if (!c) return;
+    if (c.convo) { if (live) liveStop("Gespräch beendet."); else { silence(); convoStop("Gespräch beendet."); } return; }
+    if (liveOn()) liveStart(); else appleStart();
   }
 
   // ================================================================== Kochmodus
@@ -3013,7 +3167,7 @@ Regeln:
       ${c.tab === "zutaten" ? `<div class="cook-body"><ul class="cook-ing">${ing}</ul></div>`
         : n ? `<div class="cook-prog"><b>Schritt ${i + 1} von ${n}</b><div class="bar"><i style="width:${((i + 1) / n) * 100}%"></i></div></div>
           <div class="cook-body"><p class="cook-step">${emph(steps[i])}</p>${i + 1 < n ? `<p class="cook-next"><span class="note">Danach:</span> ${emph(steps[i + 1])}</p>` : ""}</div>
-${c.convo ? `<div class="cook-reply ${c.listening ? "live" : ""}" role="status"><b>${c.busy ? "Ich denke nach …" : c.listening ? "Ich höre zu …" : c.status === "speak" ? "Ich spreche …" : "Gleich bin ich dran …"}</b>${c.heard ? `<div class="note">Du: ${esc(c.heard)}</div>` : ""}${c.reply ? `<div>${esc(c.reply)}</div>` : ""}</div>` : c.reply || c.busy ? `<div class="cook-reply" role="status">${c.busy ? "Ich denke nach …" : esc(c.reply)}</div>` : ""}
+${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "live" : ""}" role="status"><b>${c.status === "connect" ? "Verbinde …" : c.busy ? "Ich denke nach …" : c.status === "listen" || c.listening ? "Ich höre zu …" : c.status === "speak" ? "Ich spreche …" : "Gleich bin ich dran …"}</b>${c.heard ? `<div class="note">Du: ${esc(c.heard)}</div>` : ""}${c.reply ? `<div>${esc(c.reply)}</div>` : ""}</div>` : c.reply || c.busy ? `<div class="cook-reply" role="status">${c.busy ? "Ich denke nach …" : esc(c.reply)}</div>` : ""}
           <div class="cook-voice"><button class="btn ${c.convo ? "primary" : ""}" data-act="cookMic" aria-pressed="${!!c.convo}">${c.convo ? "■ Gespräch beenden" : "🎙 Gespräch starten"}</button>${c.convo ? "" : `<button class="btn" data-act="cookSpeak" aria-pressed="${c.speak !== false}">🔊 Vorlesen ${c.speak !== false ? "an" : "aus"}</button>`}${c.timer ? `<button class="btn" data-act="cookTimerStop" aria-label="Timer stoppen"><span id="cook-timer">⏱</span> ✕</button>` : ""}</div>
           <form class="cook-ask" data-submit="cookAsk"><input id="cook-q" autocomplete="off" enterkeyhint="send" placeholder="${aiChat() ? "Frage tippen oder diktieren …" : "Befehl tippen, z. B. wo bin ich"}"><button class="btn">Senden</button></form>
                     <div class="cook-nav"><button class="btn" data-act="cookNav" data-d="-1" ${i === 0 ? "disabled" : ""}>‹ Zurück</button>${i + 1 < n ? `<button class="btn primary" data-act="cookNav" data-d="1">Weiter ›</button>` : `<button class="btn primary" data-act="cookEnd">Fertig ✓</button>`}</div>`
@@ -3265,9 +3419,9 @@ ${c.convo ? `<div class="cook-reply ${c.listening ? "live" : ""}" role="status">
     resetDeck: () => run("draw", async () => { ui.radar = { ...ui.radar, stage: "alle" }; LS.set("radar", ui.radar); ui.lastDecision = null; ui.later = []; await store.radarReset(ui.pid, ui.date, ui.radar); schedule(); }),
     toggleExtras: () => { ui.open.has("extras") ? ui.open.delete("extras") : ui.open.add("extras"); LS.set("extras", ui.open.has("extras")); schedule(); },
     cookStart: (t) => { const sv = Number(t.dataset.sv) || (ui.sheet && ui.sheet.sv) || 4; ui.sheet = null; renderSheet(true); ui.cook = { id: t.dataset.id, step: 0, sv, tab: "steps", awake: null }; renderCook(); wakeOn(); },
-    cookNav: (t) => { ui.cook.step += Number(t.dataset.d); renderCook(); },
+    cookNav: (t) => { const c = ui.cook; c.step += Number(t.dataset.d); renderCook(); if (c.live) { const { steps } = cookData(), k = Math.max(0, Math.min(steps.length - 1, c.step)); liveNote("thinking", `Der Nutzer ist per Tippen jetzt bei Schritt ${k + 1} von ${steps.length}: ${steps[k]}`); } },
     cookTab: (t) => { ui.cook.tab = t.dataset.v; renderCook(); },
-    cookEnd: () => { if (ui.cook) ui.cook.convo = false; stopListen(); silence(); ui.cook = null; wakeOff(); clearInterval(tick); tick = null; renderCook(); },
+    cookEnd: () => { if (ui.cook) ui.cook.convo = false; if (live) { liveSend({ type: "session.close" }); liveCleanup(); } stopListen(); silence(); ui.cook = null; wakeOff(); clearInterval(tick); tick = null; renderCook(); },
     cookMic: () => convoToggle(),
     cookSpeak: () => { const c = ui.cook; c.speak = c.speak === false; if (c.speak === false) silence(); renderCook(); },
     cookTimerStop: () => { ui.cook.timer = null; clearInterval(tick); tick = null; renderCook(); },
@@ -3604,7 +3758,7 @@ ${c.convo ? `<div class="cook-reply ${c.listening ? "live" : ""}" role="status">
         if (ui.status === "ok" && ui.view === "radar") ensureDrawn();
       } else if (ui.status === "leer" && Object.keys(S.profiles).length) ui.status = "ok";
       if (ui.status === "ok" && S.ready.days && S.ready.imports) for (const pr of visibleProfiles()) store.applyMealResults(pr.id).then((n) => n && toast(n + " Mahlzeit" + (n === 1 ? "" : "en") + " berechnet und eingetragen")).catch((e) => console.error(e));
-      if (ui.status === "ok" && S.ready.days && S.ready.plan) for (const pr of visibleProfiles()) store.backfillPlan(pr.id).then(() => store.adoptPartner(pr.id)).catch((e) => console.error(e));
+      if (ui.status === "ok" && S.ready.days && S.ready.plan) for (const pr of visibleProfiles()) store.backfillPlan(pr.id).then(() => store.adoptPartner(pr.id)).then(() => store.autoMatch(pr.id)).then((l) => { if (l && l.length) toast("Match" + (l[0].who ? " mit " + l[0].who : "") + ": " + l.map((x) => x.title).join(", ") + " – steht jetzt bei dir zum Kochen"); }).catch((e) => console.error(e));
       if (ui.status === "ok" && S.ready.health && S.ready.weights && S.ready.days) for (const pr of visibleProfiles()) if (store.hkOpen(pr.id).length) store.importHealth(pr.id).then((n) => n && toast(n + " Wert" + (n === 1 ? "" : "e") + " aus Apple Health übernommen")).catch((e) => console.error(e));
       schedule();
     });
