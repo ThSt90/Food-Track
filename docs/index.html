@@ -158,6 +158,7 @@ button.chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--
 .slot-head { display: flex; justify-content: space-between; align-items: center; }
 .meal { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: var(--r-box); background: var(--surface); }
 .meal.eaten { background: color-mix(in srgb, var(--ok-soft) 45%, var(--surface)); }
+.meal.partner { grid-template-columns: 1fr auto; border-style: dashed; background: transparent; }
 .meal .thumb { width: 52px; height: 52px; border-radius: 12px; }
 .meal .t { font-weight: 700; overflow-wrap: anywhere; }
 .meal .m { font-size: 13px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -440,7 +441,7 @@ body { background: transparent; min-height: 100dvh; }
 .pick.flash { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, var(--accent-2))); color: var(--accent-ink); border-color: transparent; transform: scale(.985); }
 
 </style>
-<script>window.FR_BUILD="04.11. 18:50";</script>
+<script>window.FR_BUILD="04.11. 19:32";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2162,16 +2163,22 @@ body { background: transparent; min-height: 100dvh; }
     let out = "";
     // Abendessen zuerst und groß, dann die übrigen Mahlzeiten
     const order = ["abend", "mittag", "fruehstueck"];
+    const ppAll = store.partnerPlan(pid, date).filter((m) => m.recipeId);
+    const partnerRows = (key, own) => ppAll.filter((m) => m.slot === key).map((m) => {
+      const have = own.some((o) => o.recipeId === m.recipeId);
+      return `<div class="meal partner"><div><div class="t">${m.recipeId && store.S.recipes[m.recipeId] ? `<button class="link" style="padding:0;text-align:left" data-act="openRecipe" data-id="${m.recipeId}">${esc(m.title)}</button>` : esc(m.title)}</div><div class="m"><span class="chip line">${esc(m.who)}</span><span class="note">für ${deA(m.servings)} Pers.</span></div></div>${have ? `<span class="note">auch bei dir</span>` : `<div class="meal-acts"><button class="btn sm" data-act="partnerTake" data-id="${m.recipeId}" data-slot="${key}" data-sv="${m.servings > 0 ? m.servings : 4}">Auch für mich</button></div>`}</div>`;
+    }).join("");
     for (const key of order) {
       const s = d.slots.find((x) => x.key === key);
+      const prow = partnerRows(key, s.meals);
       out += `<section class="slot ${key === "abend" ? "dinner" : ""}"><div class="slot-head"><h3>${key === "abend" ? "Heute Abend" : esc(s.label)}</h3>
         <button class="btn sm" data-act="addMeal" data-slot="${key}">${ic("plus", 16)} Eintrag</button></div>
         ${s.multiOpen ? `<div class="note">Mehrere Gerichte vorgemerkt – die Prognose zählt alle. Entferne, was du nicht isst.</div>` : ""}
-        ${s.meals.length ? s.meals.map(mealRow).join("") : `<div class="note">${key === "abend" ? "Noch nichts geplant. Unter „Entdecken“ erst Favoriten sammeln, dann daraus fürs Kochen wählen – oder einen Eintrag anlegen." : "Kein Eintrag."}${key === "abend" ? `<div><button class="btn sm primary" data-act="view" data-v="radar" style="margin-top:8px">Zu „Neu“ wechseln</button></div>` : ""}</div>`}</section>`;
+        ${s.meals.length ? s.meals.map(mealRow).join("") : prow ? "" : `<div class="note">${key === "abend" ? "Noch nichts geplant. Unter „Entdecken“ erst Favoriten sammeln, dann daraus fürs Kochen wählen – oder einen Eintrag anlegen." : "Kein Eintrag."}${key === "abend" ? `<div><button class="btn sm primary" data-act="view" data-v="radar" style="margin-top:8px">Zu „Neu“ wechseln</button></div>` : ""}</div>`}${prow}</section>`;
     }
 
     const pp = store.partnerPlan(pid, date).filter((m) => m.recipeId);
-    const partner = pp.length ? `<section class="card" aria-label="Auch geplant"><h3>Auch geplant</h3><div class="minilist">${pp.map((m) => `<div><span><b>${esc(m.title)}</b><br><span class="note">${esc(m.who)} · ${esc(SLOT_LABEL[m.slot] || "")} · für ${deA(m.servings)} Pers.</span></span></div>`).join("")}</div></section>` : "";
+    const partner = "";
     const describeBtn = `<button class="btn big full" data-act="describe">${ic("plus", 18)} Gegessenes beschreiben</button>`;
     const wait = store.mealRequests(pid).filter((m) => m.date === date);
     const waiting = wait.length ? `<section class="card" aria-label="Wartet auf Berechnung"><h3>Wartet auf Berechnung</h3><div class="minilist">${wait.map((m) => `<div><span style="display:flex;gap:10px;align-items:center">${m.image ? `<img class="dsthumb" src="${esc(assetUrl(m.image))}" alt="">` : ""}${esc(m.text || "Foto")}</span><button class="btn sm ghost" data-act="dsDel" data-id="${m.id}" aria-label="Entfernen">${ic("trash", 15)}</button></div>`).join("")}</div><div class="note">Sag Claude „Essen berechnen“, dann steht es hier als Mahlzeit.</div></section>` : "";
@@ -3034,6 +3041,7 @@ Regeln:
     mealMenu: (t) => openSheet("mealMenu", { id: t.dataset.id }),
     delMeal: (t) => run("meal:" + t.dataset.id, async () => { await store.deleteMeal(ui.pid, ui.date, t.dataset.id); closeSheet(); toast("Eintrag entfernt"); }),
     addMeal: (t) => openSheet("addMeal", { slot: t.dataset.slot, tab: "beschreiben", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }),
+    partnerTake: async (t) => { await store.addMeal(ui.pid, ui.date, t.dataset.slot, { recipeId: t.dataset.id, status: "geplant", servings: Number(t.dataset.sv) || 4 }); },
     describe: () => { const h = new Date().getHours(); openSheet("addMeal", { slot: h < 11 ? "fruehstueck" : h < 15 ? "mittag" : "abend", tab: "beschreiben", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }); },
     dsQueue: () => run("dsq", async () => {
       const el = document.getElementById("ds-text"), text = el ? el.value : "";
