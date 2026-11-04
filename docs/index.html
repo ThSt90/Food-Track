@@ -473,8 +473,14 @@ body { background: transparent; min-height: 100dvh; }
 .minilist > div > .stepper { background: var(--surface-2); } .minilist > div > .stepper button { width: 44px; height: 100%; background: transparent; color: var(--text); }
 .minilist > div > .stepper span { flex: 1; text-align: center; font-size: 13px; white-space: nowrap; }
 
+/* Aktionsleiste einheitlich: gleiche Schrift- und Knopffarbe, nur Symbole tragen Farbe; Weiter bleibt der eine Hauptknopf */
+.abtn.ghost, .abtn.super { color: var(--text); font-weight: 700; }
+.abtn.ghost svg { color: var(--muted); } .abtn.super svg { color: #f2b630; }
+.abtn.skip { color: var(--text); } .abtn.skip svg { color: var(--bad); }
+.abtn.super[aria-pressed="true"] svg, .abtn.favbtn[aria-pressed="true"] svg { color: currentColor; }
+
 </style>
-<script>window.FR_BUILD="04.11. 23:07";</script>
+<script>window.FR_BUILD="04.11. 23:09";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2056,7 +2062,7 @@ body { background: transparent; min-height: 100dvh; }
     scale: "M4 20h16l-2-13H6zM12 7V4M9 12l3-2 3 2",
     user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
     star: "M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z",
-    check: "M5 12.5l4.5 4.5L19 7.5", next: "M5 5l7 7-7 7M13 5l7 7-7 7", x: "M6 6l12 12M18 6 6 18", undo: "M9 7 4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3",
+    check: "M5 12.5l4.5 4.5L19 7.5", next: "M5 5l7 7-7 7M13 5l7 7-7 7", x: "M6 6l12 12M18 6 6 18", undo: "M9 7 4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3", redo: "M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5",
     plus: "M12 5v14M5 12h14", left: "M15 5l-7 7 7 7", right: "M9 5l7 7-7 7", cam: "M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
     trash: "M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13",
   };
@@ -2355,7 +2361,7 @@ body { background: transparent; min-height: 100dvh; }
     if (ui.later.length) { const ix = (id) => ui.later.indexOf(id); stack = [...stack.filter((r) => ix(r.id) < 0), ...stack.filter((r) => ix(r.id) >= 0).sort((a, b) => ix(a.id) - ix(b.id))]; }
     const total = Object.keys(store.S.recipes).length;
     const nFav = store.radarFavCount(ui.pid, ui.date, f);
-    let out = `<div class="seg2">${fav ? `<button class="btn" data-act="stage" data-v="alle">${ic("left", 16)} Sammeln</button>` : ""}<button class="btn" data-act="resetDeck">${ic("undo", 16)} Neu starten</button><button class="btn" data-act="describe">${ic("plus", 16)} Essen erfassen</button></div>`;
+    let out = `<div class="seg2">${fav ? `<button class="btn" data-act="stage" data-v="alle">${ic("left", 16)} Sammeln</button>` : ""}<button class="btn" data-act="resetDeck">${ic("redo", 16)} Neu starten</button><button class="btn" data-act="describe">${ic("plus", 16)} Essen erfassen</button></div>`;
     const right = fav ? "keep" : "fav";
     if (!total) {
       out += `<div class="empty"><b>Noch keine Rezepte in der Bibliothek</b><span>Füge oben über „+ Link“ ein Rezept hinzu oder lege eins an. Danach kannst du hier Gerichte durchwischen.</span></div>`;
@@ -2642,7 +2648,7 @@ Regeln:
       <span><span class="n">${esc(i.name)}</span>${[i.extra ? "zusätzlich ohne Mengenangabe" : "", i.have ? "schon vorhanden" : "", i.override != null ? "Menge angepasst" : ""].filter(Boolean).map((t) => `<span class="s">${t}</span>`).join("")}</span>
       <span class="shop-r"><button class="btn sm ghost a" data-act="shopAmount" data-key="${esc(i.key)}">${i.shown == null ? "nach Bedarf" : `${deA(i.shown)} ${esc(i.unit || "")}`}</button>
         ${i.auto ? "" : `<button class="btn sm ghost" data-act="shopDel" data-id="${esc(i.id)}" aria-label="Entfernen">${ic("trash", 15)}</button>`}</span></label>`;
-    return `<div class="toprow"><span class="note">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</span><button class="btn sm" data-act="shopResetAll">${ic("undo", 16)} Alles zurücksetzen</button></div><div class="filters">${[["tag", "Heute"], ["woche", "Diese Woche"]].map(([k, t]) => `<button class="chip line" data-act="span" data-v="${k}" aria-pressed="${(ui.shopSpan === "woche") === (k === "woche")}">${t}</button>`).join("")}</div><div class="filters">${scopes.map(([k, t]) => `<button class="chip line" data-act="scope" data-v="${k}" aria-pressed="${s.scope === k}">${esc(t)}</button>`).join("")}</div>
+    return `<div class="toprow"><span class="note">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</span><button class="btn sm" data-act="shopResetAll">${ic("redo", 16)} Alles zurücksetzen</button></div><div class="filters">${[["tag", "Heute"], ["woche", "Diese Woche"]].map(([k, t]) => `<button class="chip line" data-act="span" data-v="${k}" aria-pressed="${(ui.shopSpan === "woche") === (k === "woche")}">${t}</button>`).join("")}</div><div class="filters">${scopes.map(([k, t]) => `<button class="chip line" data-act="scope" data-v="${k}" aria-pressed="${s.scope === k}">${esc(t)}</button>`).join("")}</div>
       <section class="card"><div class="row"><div><h2>Einkaufsliste</h2><div class="sub">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</div></div>${ring(String(done.length), s.items.length ? (done.length / s.items.length) * 100 : 0, "hi", "erledigt")}</div>
       ${s.meals.length ? `<div class="minilist">${s.meals.map((m) => `<div><span><b>${esc(m.title)}</b>${m.pid !== ui.pid && m.who ? ` <span class="note">(${esc(m.who)})</span>` : ""}<br><span class="note">${s.week ? esc(fmtDate(m.date)) + " · " : ""}${esc(SLOT_LABEL[m.slot] || "")} · Rezept ist für ${deA(m.recipeServings)}</span></span>
         ${m.pid === ui.pid ? `<div class="stepper" role="group" aria-label="Portionen"><button data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button><span>${deA(m.servings)} Pers.</span><button data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></div>` : `<div class="stepper ro"><span>${deA(m.servings)} Pers.</span></div>`}</div>`).join("")}</div>` : ""}
