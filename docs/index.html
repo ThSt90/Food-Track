@@ -460,7 +460,7 @@ body { background: transparent; min-height: 100dvh; }
 .meal[data-mid] { touch-action: pan-y; } .meal.swipe-del { background: var(--bad-soft); border-color: var(--bad); }
 
 </style>
-<script>window.FR_BUILD="04.11. 21:05";</script>
+<script>window.FR_BUILD="04.11. 21:12";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2253,7 +2253,8 @@ body { background: transparent; min-height: 100dvh; }
     const describeBtn = `<button class="btn big full" data-act="describe">${ic("plus", 18)} Gegessenes beschreiben</button>`;
     const wait = store.mealRequests(pid).filter((m) => m.date === date);
     const waiting = wait.length ? `<section class="card" aria-label="Wartet auf Berechnung"><h3>Wartet auf Berechnung</h3><div class="minilist">${wait.map((m) => `<div><span style="display:flex;gap:10px;align-items:center">${m.image ? `<img class="dsthumb" src="${esc(assetUrl(m.image))}" alt="">` : ""}${esc(m.text || "Foto")}</span><button class="btn sm ghost" data-act="dsDel" data-id="${m.id}" aria-label="Entfernen">${ic("trash", 15)}</button></div>`).join("")}</div><div class="note">Sag Claude „Essen berechnen“, dann steht es hier als Mahlzeit.</div></section>` : "";
-    return kpiCard(d, e) + describeBtn + waiting + out + partner + extra;
+    // Kalorienanzeige: bei Thomas (Profil 1) oben, bei Caro (Profil 2) unten
+    return pid === "p2" ? describeBtn + waiting + out + partner + extra + kpiCard(d, e) : kpiCard(d, e) + describeBtn + waiting + out + partner + extra;
   }
 
   function mealRow(m) {
