@@ -184,6 +184,13 @@ def main() -> int:
         for i in range(1, 11): page.mouse.move(box["x"] + box["width"] / 2 + i * 25, box["y"] + 302)
         page.mouse.up(); page.wait_for_timeout(700)
         check("Stufe 1, rechts wischen: engere Auswahl", "Weiter (1)" in body())
+        # Neuzeichnen zwischen Berühren und Loslassen (iPhone): der Tipp darf trotzdem nicht verloren gehen
+        wb = page.locator(".abtn.keep").bounding_box()
+        page.mouse.move(wb["x"] + wb["width"] / 2, wb["y"] + wb["height"] / 2); page.mouse.down()
+        page.evaluate("(() => { const a = document.getElementById('app'); a.innerHTML = a.innerHTML; })()")
+        page.mouse.up(); page.wait_for_timeout(500)
+        check("Tipp überlebt ein Neuzeichnen zwischen Berühren und Loslassen", page.locator("button:has-text('Weiter sammeln')").count() >= 1)
+        page.click("button:has-text('Weiter sammeln')"); page.wait_for_timeout(400)
         fav_rid = first
         box = page.locator(".swipe").bounding_box()
         page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] * 0.6); page.mouse.down()

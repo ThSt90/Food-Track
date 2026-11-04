@@ -389,3 +389,5 @@ html.fit-lock, html.fit-lock body { overflow: hidden; height: 100%; overscroll-b
 
 .abtn, .abtn.ghost { flex: 1 1 0; min-width: 0; }
 .abtn.super[aria-pressed="true"] { background: #f2b630; color: #2b2724; border-color: transparent; }
+
+button, a, [data-act], summary { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }

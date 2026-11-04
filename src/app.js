@@ -1235,17 +1235,37 @@ Regeln:
   }
 
   // ------------------------------------------------------------------ Ereignisse
+  /** Führt die Aktion eines Buttons aus (gemeinsam für Tipp und Klick). */
+  function trigger(t, e) {
+    const fn = ACT[t.dataset.act];
+    if (!fn) return;
+    // iOS nimmt einem Eingabefeld beim Tippen auf einen Button den Fokus nicht: sonst bliebe die Anzeige bis zum zweiten Tipp "eingefroren"
+    const act = document.activeElement; if (act && act !== t && typing()) act.blur();
+    if (t.tagName === "BUTTON" && t.type === "submit" && !t.closest("form")) e.preventDefault();
+    try { const res = fn(t, e); if (res && res.catch) res.catch((err) => { console.error(err); toast("Konnte nicht ausführen: " + (err && err.message || err)); }); }
+    catch (err) { console.error(err); toast("Konnte nicht ausführen: " + (err && err.message || err)); }
+  }
+  // Tipps werden schon beim Loslassen erkannt. Wird die Anzeige zwischen Berühren und Loslassen neu aufgebaut, verwirft der Browser
+  // (vor allem iOS) das Klick-Ereignis; der Vergleich über Attribute statt über das Element hält den Tipp am Leben.
+  const keyOf = (t) => ["act", "id", "key", "v", "a", "d", "n", "slot", "pid", "hex"].map((k) => t.dataset[k] ?? "").join("|");
+  let down = null, tapped = null;
+  document.addEventListener("pointerdown", (e) => {
+    const t = e.target.closest && e.target.closest("button[data-act]");
+    down = t && !t.disabled ? { key: keyOf(t), x: e.clientX, y: e.clientY, at: performance.now() } : null;
+  }, true);
+  document.addEventListener("pointerup", (e) => {
+    const d = down; down = null;
+    if (!d) return;
+    const t = e.target.closest && e.target.closest("button[data-act]");
+    if (!t || t.disabled || keyOf(t) !== d.key || Math.abs(e.clientX - d.x) > 12 || Math.abs(e.clientY - d.y) > 12 || performance.now() - d.at > 700) return;
+    tapped = { key: d.key, at: performance.now() };
+    trigger(t, e);
+  }, true);
   document.addEventListener("click", (e) => {
     const t = e.target.closest("[data-act]");
     if (!t || t.disabled) return;
-    const fn = ACT[t.dataset.act];
-    if (fn) {
-      // iOS nimmt einem Eingabefeld beim Tippen auf einen Button den Fokus nicht: sonst bliebe die Anzeige bis zum zweiten Tipp "eingefroren"
-      const act = document.activeElement; if (act && act !== t && typing()) act.blur();
-      if (t.tagName === "BUTTON" && t.type === "submit" && !t.closest("form")) e.preventDefault();
-      try { const res = fn(t, e); if (res && res.catch) res.catch((err) => { console.error(err); toast("Konnte nicht ausführen: " + (err && err.message || err)); }); }
-      catch (err) { console.error(err); toast("Konnte nicht ausführen: " + (err && err.message || err)); }
-    }
+    if (tapped && performance.now() - tapped.at < 800 && tapped.key === keyOf(t)) { tapped = null; return; } // schon beim Loslassen erledigt
+    trigger(t, e);
   });
   document.addEventListener("submit", (e) => {
     const f = e.target.closest("[data-submit]");
