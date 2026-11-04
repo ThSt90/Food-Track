@@ -412,7 +412,7 @@ body { background: transparent; min-height: 100dvh; }
 .codeblock { margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--surface-2); }
 .codeblock .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .codeblock pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; font: 12px/1.4 ui-monospace, monospace; user-select: all; }
-.seg2 { display: flex; gap: 8px; } .seg2 .btn { flex: 1; justify-content: center; }
+.seg2 { display: flex; flex-wrap: wrap; gap: 8px; } .seg2 .btn { flex: 1 1 130px; justify-content: center; white-space: nowrap; }
 .stat span, .stat small { display: block; }
 .bal .bigline { display: flex; align-items: baseline; gap: 8px; } .bal .bigline b { font-size: 40px; letter-spacing: -.02em; } .bal .bigline span { font-size: 16px; color: var(--muted); } .bal .minilist { margin-top: 10px; } .bal b.ok { color: var(--accent-text); } .bal b.bad { color: var(--bad); }
 .kpis { display: grid; gap: 10px; }
@@ -439,7 +439,7 @@ body { background: transparent; min-height: 100dvh; }
 .dsthumb { width: 44px; height: 44px; object-fit: cover; border-radius: 10px; flex: none; }
 
 </style>
-<script>window.FR_BUILD="04.11. 18:11";</script>
+<script>window.FR_BUILD="04.11. 18:13";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2262,7 +2262,7 @@ body { background: transparent; min-height: 100dvh; }
     if (ui.later.length) { const ix = (id) => ui.later.indexOf(id); stack = [...stack.filter((r) => ix(r.id) < 0), ...stack.filter((r) => ix(r.id) >= 0).sort((a, b) => ix(a.id) - ix(b.id))]; }
     const total = Object.keys(store.S.recipes).length;
     const nFav = store.radarFavCount(ui.pid, ui.date, f);
-    let out = `<div class="seg2">${fav ? `<button class="btn" data-act="stage" data-v="alle">${ic("left", 16)} Sammeln</button>` : ""}<button class="btn" data-act="resetDeck">${ic("undo", 16)} Neu starten</button></div>`;
+    let out = `<div class="seg2">${fav ? `<button class="btn" data-act="stage" data-v="alle">${ic("left", 16)} Sammeln</button>` : ""}<button class="btn" data-act="resetDeck">${ic("undo", 16)} Neu starten</button><button class="btn" data-act="describe">${ic("plus", 16)} Essen erfassen</button></div>`;
     const right = fav ? "keep" : "fav";
     if (!total) {
       out += `<div class="empty"><b>Noch keine Rezepte in der Bibliothek</b><span>Füge oben über „+ Link“ ein Rezept hinzu oder lege eins an. Danach kannst du hier Gerichte durchwischen.</span></div>`;
