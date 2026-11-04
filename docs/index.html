@@ -168,8 +168,8 @@ button.chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--
 .meal-acts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
 .meal-acts > .btn, .meal-acts > .stepper { height: 44px; min-height: 44px; width: 100%; box-sizing: border-box; border-radius: 12px; font-size: 14px; padding: 0 10px; }
 .meal-acts > .stepper { padding: 0; }
-.meal-acts > .stepper button { width: 38px; height: 100%; font-size: 18px; }
-.meal-acts > .stepper span { flex: 1; font-size: 13px; white-space: nowrap; min-width: 0; padding: 0 2px; }
+.meal-acts > .stepper { background: var(--surface-2); } .meal-acts > .stepper button { width: 36px; flex: none; height: 100%; font-size: 18px; background: transparent; color: var(--text); }
+.meal-acts > .stepper span { flex: 1; font-size: 13px; white-space: nowrap; min-width: 0; padding: 0; text-align: center; }
 .meal-acts > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 .meal-acts > .btn.ghost { background: var(--surface-2); }
 .dinner .meal { grid-template-columns: 1fr auto; padding: 0 0 14px; overflow: hidden; row-gap: 10px; }
@@ -470,11 +470,11 @@ body { background: transparent; min-height: 100dvh; }
 .shop-r .btn:not(.a) { width: 44px; padding: 0; display: inline-grid; place-items: center; }
 .minilist > div > .stepper { width: 148px; flex: none; height: 44px; box-sizing: border-box; }
 .minilist > div > .stepper.ro { justify-content: center; }
-.minilist > div > .stepper button { width: 44px; height: 100%; }
+.minilist > div > .stepper { background: var(--surface-2); } .minilist > div > .stepper button { width: 44px; height: 100%; background: transparent; color: var(--text); }
 .minilist > div > .stepper span { flex: 1; text-align: center; font-size: 13px; white-space: nowrap; }
 
 </style>
-<script>window.FR_BUILD="04.11. 22:30";</script>
+<script>window.FR_BUILD="04.11. 23:03";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
