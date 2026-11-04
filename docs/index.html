@@ -421,6 +421,17 @@ body { background: transparent; min-height: 100dvh; }
 .photoest label.btn { cursor: pointer; text-align: center; }
 .photoest label.btn.disabled { opacity: .6; pointer-events: none; }
 
+.chooser { display: grid; gap: 14px; padding-top: 8px; }
+.chooser h2 { margin: 0 0 6px; font-size: 28px; }
+.pick { display: flex; align-items: center; gap: 16px; width: 100%; min-height: 104px; padding: 18px 20px; border-radius: 24px; border: 1px solid var(--line, rgba(0,0,0,.08)); background: var(--surface); color: var(--text); text-align: left; box-shadow: 0 8px 24px rgba(0,0,0,.06); cursor: pointer; }
+.pick.main { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, var(--accent-2))); color: var(--accent-ink); border-color: transparent; }
+.pick .pe { font-size: 40px; line-height: 1; }
+.pick .pt { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.pick .pt b { font-size: 21px; }
+.pick .pt small { font-size: 14px; opacity: .75; }
+.pick .pa { opacity: .7; display: grid; }
+.pick:active { transform: scale(.985); }
+
 </style>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
@@ -1764,6 +1775,7 @@ body { background: transparent; min-height: 100dvh; }
             plannedN: ms.filter((m) => OPEN.includes(m.status)).length, eaten: Math.round(kc.reduce((s, k) => s + (k || 0), 0)),
             protein: eaten.length && pr.every((p) => p != null) ? Math.round(pr.reduce((s, p) => s + p, 0)) : null, sportDone: !!doc.sportDone,
             unknown: kc.some((k) => k == null) || eaten.some((m) => m.quality === "unvollstaendig" || m.quality === "fehlt") });
+          if (!info.complete && d < t && info.eatenN > 0) info.complete = true; // vergangene Tage mit Gegessenem zählen automatisch
           if (doc.goalKcal != null) {
             info.remaining = Math.round(doc.goalKcal + sport - info.eaten);
             if (info.complete && !info.unknown) { info.deviation = info.eaten - (doc.goalKcal + sport); info.hit = info.deviation <= 0; }
@@ -2107,7 +2119,6 @@ body { background: transparent; min-height: 100dvh; }
         ${s.meals.length ? s.meals.map(mealRow).join("") : `<div class="note">${key === "abend" ? "Noch nichts geplant. Unter „Entdecken“ erst Favoriten sammeln, dann daraus fürs Kochen wählen – oder einen Eintrag anlegen." : "Kein Eintrag."}${key === "abend" ? `<div><button class="btn sm primary" data-act="view" data-v="radar" style="margin-top:8px">Zu „Neu“ wechseln</button></div>` : ""}</div>`}</section>`;
     }
 
-    extra += `<button class="toggle" data-act="flag" data-flag="complete" aria-pressed="${st.complete}"><span><b>Tag vollständig erfasst</b><br><span class="note">Nur vollständige Tage zählen in Statistik und Zielerreichung.</span></span><span class="sw"></span></button>`;
     return kpiCard(d, e) + out + extra;
   }
 
@@ -2186,9 +2197,12 @@ body { background: transparent; min-height: 100dvh; }
 
   function vRadar() {
     const f = ui.radar, fav = f.stage === "fav";
-    if (!f.meal) return `<div class="chooser"><div class="guck" aria-hidden="true">N' Guck Guck 👀</div><h2>Was suchst du?</h2><div class="note">Frühstück und Mittag/Abend bleiben getrennt.</div>
-      <button class="btn primary big" data-act="pickMeal" data-v="main">Mittag / Abendessen</button>
-      <button class="btn big" data-act="pickMeal" data-v="fruehstueck">Frühstück</button></div>`;
+    if (!f.meal) {
+      const rs = store.recipes(ui.pid), nM = rs.filter((r) => r.category !== "fruehstueck").length, nF = rs.filter((r) => r.category === "fruehstueck").length;
+      const card = (v, emoji, title, n, cls) => `<button class="pick ${cls}" data-act="pickMeal" data-v="${v}"><span class="pe" aria-hidden="true">${emoji}</span><span class="pt"><b>${title}</b><small>${n} ${n === 1 ? "Rezept" : "Rezepte"}</small></span><span class="pa" aria-hidden="true">${ic("right", 20)}</span></button>`;
+      return `<div class="chooser"><div class="guck" aria-hidden="true">N' Guck Guck 👀</div><h2>Was suchst du?</h2>
+        ${card("main", "🍽️", "Mittag / Abendessen", nM, "main")}${card("fruehstueck", "🥐", "Frühstück", nF, "")}</div>`;
+    }
     let stack = store.radarStack(ui.pid, ui.date, f);
     if (ui.later.length) { const ix = (id) => ui.later.indexOf(id); stack = [...stack.filter((r) => ix(r.id) < 0), ...stack.filter((r) => ix(r.id) >= 0).sort((a, b) => ix(a.id) - ix(b.id))]; }
     const total = Object.keys(store.S.recipes).length;
@@ -2486,9 +2500,7 @@ Regeln:
       ${s.items.length ? `<div class="shop">${open.map(row).join("")}</div>${!open.length && done.length ? `<div class="note">Alles abgehakt.</div>` : ""}${done.length ? `<button class="link acc" data-act="toggleDone">${showDone ? "Erledigte ausblenden" : `${done.length} erledigt/vorhanden ausgeblendet – anzeigen`}</button>${showDone ? `<div class="shop">${done.map(row).join("")}</div>` : ""}` : ""}`
         : `<div class="empty"><b>Noch nichts geplant</b><span>Wähle unter „Neu“ Gerichte für heute oder plane sie unter „Ausgewählt“ – die Zutaten erscheinen hier automatisch und passen sich an Portionen an.</span><button class="btn primary" data-act="view" data-v="radar">Gerichte in „Neu“ wählen</button></div>`}
             ${open.length ? `<button class="btn" data-act="shopShare">Offene Posten teilen / kopieren (z. B. für Bring!)</button>` : ""}
-      <form class="fgrid three" data-submit="shopAdd"><input id="shop-n" placeholder="Eigener Posten" aria-label="Eigener Posten" required class="full">
-        <input id="shop-a" inputmode="decimal" placeholder="Menge" aria-label="Menge"><input id="shop-u" placeholder="Einheit" aria-label="Einheit"><button class="btn">${ic("plus", 16)} Hinzufügen</button></form>
-      <div class="note">Gleiche Zutaten werden über alle Gerichte addiert, wenn die Einheiten zusammenpassen (g/kg, ml/l/EL/TL). Andere Einheiten bleiben getrennte Posten.</div>${ps.length > 1 ? `<div class="note">Die Liste ist live geteilt: Abhaken und Änderungen der anderen Person erscheinen nach wenigen Sekunden.</div>` : ""}</section>`;
+      </section>`;
   }
 
   // ================================================================== Mehr, Historie, Gewicht
@@ -2536,7 +2548,7 @@ Regeln:
       <div class="stats">${tiles.map(([v, t]) => `<div class="stat"><b>${v}</b><span>${t}</span></div>`).join("")}</div>
       <section class="card"><h3>Kalorien pro Tag</h3>${histChart(days)}<div class="note">Balken = gegessen, Linie = Budget (Ziel + Sport). Grau = Tag nicht als vollständig markiert.</div></section>
       ${cal}
-      <div class="note">Ein Tag zählt erst, wenn du ihn unter „Ausgewählt“ als vollständig erfasst markierst und alle gegessenen Mahlzeiten einen Kalorienwert haben. Tage ohne Einträge werden weder als Erfolg noch als Misserfolg gewertet.</div>`;
+      <div class="note">Ein vergangener Tag zählt, sobald etwas gegessen wurde und alle gegessenen Mahlzeiten einen Kalorienwert haben. Tage ohne Einträge werden weder als Erfolg noch als Misserfolg gewertet.</div>`;
   }
 
   const HEALTH_URL = () => `${(window.FR_CONFIG && window.FR_CONFIG.url) || "https://DEIN-PROJEKT.supabase.co"}/functions/v1/health-import`;
