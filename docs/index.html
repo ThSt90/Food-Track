@@ -164,7 +164,13 @@ button.chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--
 .meal .m { font-size: 13px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .meal .k { text-align: right; font-weight: 800; font-size: 17px; }
 .meal .k small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
-.meal-acts { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.meal-acts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
+.meal-acts > .btn, .meal-acts > .stepper { height: 44px; min-height: 44px; width: 100%; box-sizing: border-box; border-radius: 12px; font-size: 14px; padding: 0 10px; }
+.meal-acts > .stepper { padding: 0; }
+.meal-acts > .stepper button { width: 38px; height: 100%; font-size: 18px; }
+.meal-acts > .stepper span { flex: 1; font-size: 13px; white-space: nowrap; min-width: 0; padding: 0 2px; }
+.meal-acts > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+.meal-acts > .btn.ghost { background: var(--surface-2); }
 .dinner .meal { grid-template-columns: 1fr auto; padding: 0 0 14px; overflow: hidden; row-gap: 10px; }
 .dinner .meal .thumb { grid-column: 1 / -1; width: 100%; height: 150px; border-radius: 0; }
 .dinner .meal > div:not(.thumb) { padding: 0 14px; }
@@ -441,7 +447,7 @@ body { background: transparent; min-height: 100dvh; }
 .pick.flash { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, var(--accent-2))); color: var(--accent-ink); border-color: transparent; transform: scale(.985); }
 
 </style>
-<script>window.FR_BUILD="04.11. 20:09";</script>
+<script>window.FR_BUILD="04.11. 20:13";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2210,12 +2216,12 @@ body { background: transparent; min-height: 100dvh; }
     const portions = `<div class="stepper" role="group" aria-label="Portionen"><button data-act="portion" data-id="${m.id}" data-d="-0.5" aria-label="weniger">−</button><span>${deA(m.portions)} P.</span><button data-act="portion" data-id="${m.id}" data-d="0.5" aria-label="mehr">+</button></div>`;
     const acts = m.status === "gegessen"
       ? `${portions}<button class="btn sm ghost" data-act="status" data-id="${m.id}" data-s="geplant">Doch nicht gegessen</button>${m.recipeChanged ? `<button class="btn sm" data-act="resnap" data-id="${m.id}">Neue Rezeptwerte übernehmen</button>` : ""}`
-      : `${m.recipeId ? `<button class="btn sm" data-act="cookStart" data-id="${m.recipeId}" data-sv="${m.servings > 0 ? m.servings : 4}">Kochen</button>` : ""}<button class="btn sm primary" data-act="status" data-id="${m.id}" data-s="gegessen">${ic("check", 16)} Gegessen</button>${portions}
+      : `${m.recipeId ? `<button class="btn sm" data-act="cookStart" data-id="${m.recipeId}" data-sv="${m.servings > 0 ? m.servings : 4}">Kochen</button>` : ""}<button class="btn sm primary" data-act="status" data-id="${m.id}" data-s="gegessen">${ic("check", 16)} Gegessen</button>${portions}${m.recipeId ? `<div class="stepper" role="group" aria-label="Kochen für"><button data-act="svMeal" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button><span>Kochen für ${deA(m.servings > 0 ? m.servings : 4)}</span><button data-act="svMeal" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></div>` : ""}${m.recipeId && (m.slot === "mittag" || m.slot === "abend") ? `<button class="btn sm" data-act="mealSwap" data-id="${m.id}" aria-label="Zwischen Mittag und Abend wechseln">${m.slot === "mittag" ? "→ Abend" : "→ Mittag"}</button>` : ""}
          `;
     return `<div class="meal ${m.status === "gegessen" ? "eaten" : ""}">
       ${img(m.image, "", m.title)}
       <div><div class="t">${m.recipeExists ? `<button class="link" style="padding:0;text-align:left" data-act="openRecipe" data-id="${m.recipeId}">${esc(m.title)}</button>` : esc(m.title)}</div>
-        <div class="m"><span class="status ${m.status}">${statusTxt}</span>${m.recipeId && m.status !== "gegessen" ? `<span class="chip line" style="gap:2px;padding:2px 4px"><button class="link" style="padding:0 8px" data-act="svMeal" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button>Kochen für ${deA(m.servings > 0 ? m.servings : 4)}<button class="link" style="padding:0 8px" data-act="svMeal" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></span>` : ""}${m.recipeId && (m.slot === "mittag" || m.slot === "abend") && m.status !== "gegessen" ? `<button class="chip line" data-act="mealSwap" data-id="${m.id}" aria-label="Zwischen Mittag und Abend wechseln">${m.slot === "mittag" ? "→ Abend" : "→ Mittag"}</button>` : ""}${m.quality !== "original" && m.quality !== "berechnet" ? qualityChip(m.quality) : ""}${m.recipeChanged ? `<span class="chip warn">Rezept geändert</span>` : ""}</div></div>
+        <div class="m"><span class="status ${m.status}">${statusTxt}</span>${m.quality !== "original" && m.quality !== "berechnet" ? qualityChip(m.quality) : ""}${m.recipeChanged ? `<span class="chip warn">Rezept geändert</span>` : ""}</div></div>
       <div class="k">${kcal(m.total.kcal)}<small>kcal${m.portions !== 1 && m.per.kcal != null ? ` · ${de(m.per.kcal)}/P.` : ""}</small></div>
       <div class="meal-acts">${acts}<button class="btn sm ghost" data-act="mealMenu" data-id="${m.id}" aria-label="Weitere Aktionen">⋯</button></div></div>`;
   }
