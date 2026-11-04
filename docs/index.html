@@ -441,7 +441,7 @@ body { background: transparent; min-height: 100dvh; }
 .pick.flash { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, var(--accent-2))); color: var(--accent-ink); border-color: transparent; transform: scale(.985); }
 
 </style>
-<script>window.FR_BUILD="04.11. 19:32";</script>
+<script>window.FR_BUILD="04.11. 20:09";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -1394,13 +1394,31 @@ body { background: transparent; min-height: 100dvh; }
     /** Gemeinsamer Kochplan: je Tag, welche Rezepte wer kocht/isst (ohne Verzehrdaten). Einkauf und Partneransicht lesen nur hieraus. */
     async function syncPlan(pid, date) {
       const dd = dayDoc(pid, date), cur = {};
-      for (const [id, m] of live(dd && dd.meals)) if (m.recipeId) cur[id] = { pid, who: (profile(pid) || {}).name || "", slot: m.slot, recipeId: m.recipeId, title: m.title || "", servings: m.servings > 0 ? m.servings : 4, status: m.status };
+      for (const [id, m] of live(dd && dd.meals)) if (m.recipeId && !m.from) cur[id] = { pid, who: (profile(pid) || {}).name || "", slot: m.slot, recipeId: m.recipeId, title: m.title || "", servings: m.servings > 0 ? m.servings : 4, status: m.status };
       const old = ((S.plan && S.plan[date]) || {}).meals || {}, change = {};
       for (const id of Object.keys(cur)) if (JSON.stringify(old[id]) !== JSON.stringify(cur[id])) change[id] = cur[id];
       for (const [id, e] of live(old)) if (e.pid === pid && !cur[id]) change[id] = null;
       if (Object.keys(change).length) await patch("plan/" + date, { meals: {} }, { meals: change });
     }
     const dayPatch = async (pid, date, change) => { const r = await patch("days/" + dayKey(pid, date), dayBase(pid, date), change); if (change && change.meals) await syncPlan(pid, date); return r; };
+    const adopting = new Set();
+    /** Gerichte der Partnerin (heute und später) landen automatisch auch in meinem Tag; einmal entfernte kommen nicht wieder. */
+    async function adoptPartner(pid) {
+      if (adopting.has(pid)) return 0; adopting.add(pid); let n = 0;
+      try {
+        const t0 = today();
+        for (const [date, pl] of Object.entries(S.plan || {})) {
+          if (date < t0 || !pl || !pl.meals) continue;
+          for (const [pmid, m] of live(pl.meals)) {
+            if (m.pid === pid || !m.recipeId || m.status === "gegessen" || !S.recipes[m.recipeId]) continue;
+            const dd = dayDoc(pid, date), own = live(dd && dd.meals).map(([, x]) => x);
+            if ((dd && dd.ptSkip && dd.ptSkip[pmid]) || own.some((x) => x.from === pmid || (x.recipeId === m.recipeId && x.slot === m.slot))) continue;
+            await addMeal(pid, date, m.slot, { id: "pt-" + pmid, recipeId: m.recipeId, status: "geplant", servings: m.servings, from: pmid }); n++;
+          }
+        }
+      } finally { adopting.delete(pid); }
+      return n;
+    }
     let planBackfilled = false;
     /** Einmal pro Sitzung: eigene Tage ab heute in den gemeinsamen Plan übernehmen (für Gerichte, die vor der Trennung geplant wurden). */
     async function backfillPlan(pid) {
@@ -1533,7 +1551,7 @@ body { background: transparent; min-height: 100dvh; }
       if (existing && existing.meals && existing.meals[id]) return id;
       const r = o.recipeId ? S.recipes[o.recipeId] : null;
       const meal = { slot, recipeId: o.recipeId || null, title: r ? r.title : o.title || "Mahlzeit", status: o.status === "gegessen" ? "geplant" : o.status || "geplant",
-        portions: Number(o.portions) > 0 ? Number(o.portions) : 1, servings: Number(o.servings) > 0 ? Number(o.servings) : 4, manual: o.manual || null, snap: null, eatenAt: null, createdAt: now().toISOString() };
+        portions: Number(o.portions) > 0 ? Number(o.portions) : 1, servings: Number(o.servings) > 0 ? Number(o.servings) : 4, manual: o.manual || null, snap: null, eatenAt: null, createdAt: now().toISOString(), ...(o.from ? { from: o.from } : {}) };
       if (o.status === "gegessen") Object.assign(meal, { status: "gegessen", snap: snapshotFor(meal), eatenAt: now().toISOString() });
       await dayPatch(pid, date, { meals: { [id]: meal } });
       return id;
@@ -1575,6 +1593,7 @@ body { background: transparent; min-height: 100dvh; }
       const m = mealOf(pid, date, id);
       const d = dayDoc(pid, date);
       const change = { meals: { [id]: null } };
+      if (m && m.from) change.ptSkip = { [m.from]: true };
       if (m.recipeId && d.radar && d.radar[m.recipeId] && d.radar[m.recipeId].status === "vorgemerkt") change.radar = { [m.recipeId]: { status: "vorgeschlagen" } };
       await dayPatch(pid, date, change);
     }
@@ -1915,7 +1934,7 @@ body { background: transparent; min-height: 100dvh; }
 
     return {
       linkImports, addLinkImport, restoreRecipe, setImportRecipe, setImportStatus, deleteImport,
-      S, subscribe, mondayOf, radarMatches, partnerPlan, backfillPlan, addMealRequest, mealRequests, applyMealResults, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
+      S, subscribe, mondayOf, radarMatches, partnerPlan, backfillPlan, adoptPartner, addMealRequest, mealRequests, applyMealResults, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
       profiles, profile, createDefaultProfiles, saveProfile, energyFor, currentWeight,
       dayDoc, daySettings, setDayFlag, day, meals, addMeal, setMealStatus, updateMeal, resnapshotMeal, deleteMeal,
       foodList, foodMap, recipes, recipe, saveRecipe, deleteRecipe, findDuplicates, toggleFavorite, favSet,
@@ -2165,7 +2184,8 @@ body { background: transparent; min-height: 100dvh; }
     const order = ["abend", "mittag", "fruehstueck"];
     const ppAll = store.partnerPlan(pid, date).filter((m) => m.recipeId);
     const partnerRows = (key, own) => ppAll.filter((m) => m.slot === key).map((m) => {
-      const have = own.some((o) => o.recipeId === m.recipeId);
+      if (own.some((o) => o.recipeId === m.recipeId)) return "";
+      const have = false;
       return `<div class="meal partner"><div><div class="t">${m.recipeId && store.S.recipes[m.recipeId] ? `<button class="link" style="padding:0;text-align:left" data-act="openRecipe" data-id="${m.recipeId}">${esc(m.title)}</button>` : esc(m.title)}</div><div class="m"><span class="chip line">${esc(m.who)}</span><span class="note">für ${deA(m.servings)} Pers.</span></div></div>${have ? `<span class="note">auch bei dir</span>` : `<div class="meal-acts"><button class="btn sm" data-act="partnerTake" data-id="${m.recipeId}" data-slot="${key}" data-sv="${m.servings > 0 ? m.servings : 4}">Auch für mich</button></div>`}</div>`;
     }).join("");
     for (const key of order) {
@@ -3417,7 +3437,7 @@ Regeln:
         if (ui.status === "ok" && ui.view === "radar") ensureDrawn();
       } else if (ui.status === "leer" && Object.keys(S.profiles).length) ui.status = "ok";
       if (ui.status === "ok" && S.ready.days && S.ready.imports) for (const pr of visibleProfiles()) store.applyMealResults(pr.id).then((n) => n && toast(n + " Mahlzeit" + (n === 1 ? "" : "en") + " berechnet und eingetragen")).catch((e) => console.error(e));
-      if (ui.status === "ok" && S.ready.days && S.ready.plan) for (const pr of visibleProfiles()) store.backfillPlan(pr.id).catch((e) => console.error(e));
+      if (ui.status === "ok" && S.ready.days && S.ready.plan) for (const pr of visibleProfiles()) store.backfillPlan(pr.id).then(() => store.adoptPartner(pr.id)).catch((e) => console.error(e));
       if (ui.status === "ok" && S.ready.health && S.ready.weights && S.ready.days) for (const pr of visibleProfiles()) if (store.hkOpen(pr.id).length) store.importHealth(pr.id).then((n) => n && toast(n + " Wert" + (n === 1 ? "" : "e") + " aus Apple Health übernommen")).catch((e) => console.error(e));
       schedule();
     });
