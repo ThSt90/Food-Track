@@ -235,14 +235,18 @@ button.chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--
 .star { color: var(--hot-1); }
 
 /* ------------------------------------------------------------------ Formulare */
-label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 600; min-width: 0; }
-input, select, textarea { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-height: 44px; width: 100%; color: var(--text); }
+label.f { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 600; min-width: 0; }
+input, select, textarea { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-height: 44px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; font-size: 16px; font-family: inherit; color: var(--text); }
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), select { height: 48px; -webkit-appearance: none; appearance: none; }
+select { padding-right: 38px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+input[type="date"], input[type="time"] { display: block; text-align: left; line-height: 1.2; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
 textarea { min-height: 120px; resize: vertical; line-height: 1.4; }
 input[type="range"] { padding: 0; min-height: 28px; accent-color: var(--accent); background: transparent; border: 0; }
 input[type="checkbox"] { width: 22px; height: 22px; min-height: 0; accent-color: var(--accent); }
 .unsure { border-color: var(--hot-1) !important; box-shadow: 0 0 0 1px var(--hot-1); }
-.fgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; align-items: end; }
-.fgrid.three { grid-template-columns: repeat(3, 1fr); }
+.fgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.fgrid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .fgrid .full { grid-column: 1 / -1; }
 .ingrow { display: grid; grid-template-columns: 64px 70px 1fr 34px; gap: 6px; align-items: center; }
 .ingrow select { grid-column: 1 / -2; min-height: 36px; padding: 4px 8px; font-size: 13px; }
@@ -448,7 +452,7 @@ body { background: transparent; min-height: 100dvh; }
 .pick.flash { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, var(--accent-2))); color: var(--accent-ink); border-color: transparent; transform: scale(.985); }
 
 </style>
-<script>window.FR_BUILD="04.11. 20:21";</script>
+<script>window.FR_BUILD="04.11. 20:23";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
