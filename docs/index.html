@@ -432,7 +432,7 @@ body { background: transparent; min-height: 100dvh; }
 .pick:active { transform: scale(.985); }
 
 </style>
-<script>window.FR_BUILD="04.11. 17:29";</script>
+<script>window.FR_BUILD="04.11. 17:43";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -1879,13 +1879,34 @@ body { background: transparent; min-height: 100dvh; }
       if (dup) return dup.id;
       return saveImport({ type: "link", url, status: "offen", category: normCat(category) });
     }
+    /** Gegessenes in eigenen Worten: wird als offener Auftrag gespeichert; Claude berechnet es im Chat und schreibt `result` + status "fertig" zurück. */
+    async function addMealRequest(pid, date, slot, text) {
+      text = String(text || "").trim();
+      if (text.length < 3) throw new Error("bad_text");
+      return saveImport({ type: "mealtext", status: "offen", pid, date, slot, text: text.slice(0, 1500) });
+    }
+    const mealRequests = (pid) => Object.keys(S.imports).filter((id) => S.imports[id] && S.imports[id].type === "mealtext" && S.imports[id].pid === pid && S.imports[id].status === "offen").map((id) => ({ id, ...S.imports[id] })).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+    let applyingMeals = false;
+    /** Fertig berechnete Aufträge als gegessene, geschätzte Mahlzeit eintragen (gleiche ID = nie doppelt) und abschließen. */
+    async function applyMealResults(pid) {
+      if (applyingMeals) return 0; applyingMeals = true; let n = 0;
+      try {
+        const ready = Object.keys(S.imports).filter((id) => { const x = S.imports[id]; return x && x.type === "mealtext" && x.pid === pid && x.status === "fertig" && x.result && x.result.kcal != null; });
+        for (const id of ready) {
+          const x = S.imports[id], rs = x.result;
+          await addMeal(pid, x.date, x.slot || "mittag", { id: "mt-" + id, title: String(rs.title || "Mahlzeit").slice(0, 60), manual: { kcal: rs.kcal, protein: rs.protein ?? null, carbs: rs.carbs ?? null, fat: rs.fat ?? null, items: rs.items || [], note: rs.note || "" }, portions: 1, status: "gegessen" });
+          await setImportStatus(id, "uebernommen"); n++;
+        }
+      } finally { applyingMeals = false; }
+      return n;
+    }
     const setImportStatus = (id, status) => queue("imports/" + id, (ref) => ref.update({ status }));
     const setImportRecipe = (id, recipe) => queue("imports/" + id, (ref) => ref.update({ recipe, status: "fertig" }));
     const deleteImport = (id) => queue("imports/" + id, (ref) => ref.delete());
 
     return {
       linkImports, addLinkImport, restoreRecipe, setImportRecipe, setImportStatus, deleteImport,
-      S, subscribe, mondayOf, radarMatches, partnerPlan, backfillPlan, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
+      S, subscribe, mondayOf, radarMatches, partnerPlan, backfillPlan, addMealRequest, mealRequests, applyMealResults, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
       profiles, profile, createDefaultProfiles, saveProfile, energyFor, currentWeight,
       dayDoc, daySettings, setDayFlag, day, meals, addMeal, setMealStatus, updateMeal, resnapshotMeal, deleteMeal,
       foodList, foodMap, recipes, recipe, saveRecipe, deleteRecipe, findDuplicates, toggleFavorite, favSet,
@@ -2056,7 +2077,7 @@ body { background: transparent; min-height: 100dvh; }
   }
   let toastTimer = null;
   // Keine Bestätigungs-Popups: nur Fehler, Warnungen und die zwei Hinweise, die sonst fehlen würden
-  const TOAST_OK = /^(Kopiert|\d+ Werte? aus Apple|Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|„.*“ gelöscht)/;
+  const TOAST_OK = /^(Kopiert|\d+ Werte? aus Apple|Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|\d+ Mahlzeit|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|„.*“ gelöscht)/;
   function toast(text, undo) { if (!TOAST_OK.test(String(text))) return; ui.toast = { text, undo }; renderToast(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { ui.toast = null; renderToast(); }, undo ? 6000 : 3000); }
 
   // ================================================================== Gemeinsame Bausteine
@@ -2141,8 +2162,10 @@ body { background: transparent; min-height: 100dvh; }
 
     const pp = store.partnerPlan(pid, date).filter((m) => m.recipeId);
     const partner = pp.length ? `<section class="card" aria-label="Auch geplant"><h3>Auch geplant</h3><div class="minilist">${pp.map((m) => `<div><span><b>${esc(m.title)}</b><br><span class="note">${esc(m.who)} · ${esc(SLOT_LABEL[m.slot] || "")} · für ${deA(m.servings)} Pers.</span></span></div>`).join("")}</div></section>` : "";
-    const describeBtn = window.FR_TEXT ? `<button class="btn big full" data-act="describe">${ic("plus", 18)} Gegessenes beschreiben</button>` : "";
-    return kpiCard(d, e) + describeBtn + out + partner + extra;
+    const describeBtn = `<button class="btn big full" data-act="describe">${ic("plus", 18)} Gegessenes beschreiben</button>`;
+    const wait = store.mealRequests(pid).filter((m) => m.date === date);
+    const waiting = wait.length ? `<section class="card" aria-label="Wartet auf Berechnung"><h3>Wartet auf Berechnung</h3><div class="minilist">${wait.map((m) => `<div><span>${esc(m.text)}</span><button class="btn sm ghost" data-act="dsDel" data-id="${m.id}" aria-label="Entfernen">${ic("trash", 15)}</button></div>`).join("")}</div><div class="note">Sag Claude „Essen berechnen“, dann steht es hier als Mahlzeit.</div></section>` : "";
+    return kpiCard(d, e) + describeBtn + waiting + out + partner + extra;
   }
 
   function mealRow(m) {
@@ -2817,7 +2840,7 @@ Regeln:
     const s = ui.sheet;
     const q = L.norm(s.q || "");
     const rs = store.recipes(ui.pid).filter((r) => !q || L.norm(r.title).includes(q)).slice(0, 30);
-    return `<div class="filters">${[...(window.FR_TEXT ? [["beschreiben", "Beschreiben"]] : []), ["rezept", "Aus Bibliothek"], ["manuell", "Ohne Rezept"]].map(([k, t]) => `<button class="chip line" data-act="amTab" data-v="${k}" aria-pressed="${s.tab === k}">${t}</button>`).join("")}</div>
+    return `<div class="filters">${[["beschreiben", "Beschreiben"], ["rezept", "Aus Bibliothek"], ["manuell", "Ohne Rezept"]].map(([k, t]) => `<button class="chip line" data-act="amTab" data-v="${k}" aria-pressed="${s.tab === k}">${t}</button>`).join("")}</div>
       ${s.tab === "beschreiben" ? sheetDescribe(s) : s.tab === "rezept" ? `<input id="am-q" type="search" placeholder="Rezept suchen" value="${esc(s.q || "")}" data-input="amq" aria-label="Rezept suchen">
         <div class="minilist">${rs.map((r) => `<div><span><b>${esc(r.title)}</b><br><span class="note">${kcal(r.nut.perPortion.kcal)} kcal je Portion · ${esc(L.QUALITY_LABEL[r.nut.quality])}</span></span>
           <span class="btns"><button class="btn sm" data-act="amAdd" data-id="${r.id}" data-s="geplant">Planen</button><button class="btn sm primary" data-act="amAdd" data-id="${r.id}" data-s="gegessen">Gegessen</button></span></div>`).join("") || `<div class="note">Keine Rezepte gefunden.</div>`}</div>`
@@ -2831,7 +2854,12 @@ Regeln:
   }
 
   /** Gegessenes in eigenen Worten (getippt oder diktiert): KI zerlegt in Posten und schätzt die Kalorien; Mensch prüft und trägt ein. */
+  const aiApi = () => !!(window.FR_TEXT && window.FR_CONFIG && window.FR_CONFIG.ai === "api");
   function sheetDescribe(s) {
+    if (!aiApi()) return `<label class="f full">Was hast du gegessen?<textarea id="ds-text" rows="4" data-input="dsText" placeholder="z. B. 3 Toast, ein Ei, 2 Toast mit Philadelphia und einer mit Nutella">${esc(s.dsText || "")}</textarea></label>
+      <label class="f">Mahlzeit<select id="ds-slot">${X.SLOTS.map(([k, t]) => `<option value="${k}" ${k === s.slot ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+      <div class="note">Tipp: Mit der Mikrofon-Taste der iPhone-Tastatur kannst du sprechen. Der Text wird gespeichert; Claude berechnet die Kalorien und trägt die Mahlzeit ein, sobald du ihn dazu aufforderst.</div>
+      <button class="btn primary full" data-act="dsQueue">Speichern zum Berechnen</button>`;
     const d = s.ds || {};
     const res = d.items ? `<div class="card" style="margin:0"><div class="eyebrow">Geschätzt · Sicherheit: ${esc(d.confidence)}</div>
         <div class="minilist">${d.items.map((i) => `<div><span>${esc(i.name)}</span><b>${de(i.kcal)} kcal</b></div>`).join("")}</div>
@@ -3011,6 +3039,12 @@ Regeln:
     delMeal: (t) => run("meal:" + t.dataset.id, async () => { await store.deleteMeal(ui.pid, ui.date, t.dataset.id); closeSheet(); toast("Eintrag entfernt"); }),
     addMeal: (t) => openSheet("addMeal", { slot: t.dataset.slot, tab: "rezept", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }),
     describe: () => { const h = new Date().getHours(); openSheet("addMeal", { slot: h < 11 ? "fruehstueck" : h < 15 ? "mittag" : "abend", tab: "beschreiben", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }); },
+    dsQueue: () => run("dsq", async () => {
+      const el = document.getElementById("ds-text"), text = el ? el.value : "";
+      if (text.trim().length < 3) { toast("Bitte erst eintragen, was du gegessen hast."); return; }
+      await store.addMealRequest(ui.pid, ui.date, val("ds-slot") || ui.sheet.slot, text); closeSheet();
+    }),
+    dsDel: (t) => run("dsd", () => store.deleteImport(t.dataset.id)),
     dsRun: async () => {
       const sh = ui.sheet, el = document.getElementById("ds-text"); if (!sh) return;
       sh.dsText = el ? el.value : sh.dsText || "";
@@ -3362,6 +3396,7 @@ Regeln:
         ui.status = Object.keys(S.profiles).length ? "ok" : "leer";
         if (ui.status === "ok" && ui.view === "radar") ensureDrawn();
       } else if (ui.status === "leer" && Object.keys(S.profiles).length) ui.status = "ok";
+      if (ui.status === "ok" && S.ready.days && S.ready.imports) for (const pr of visibleProfiles()) store.applyMealResults(pr.id).then((n) => n && toast(n + " Mahlzeit" + (n === 1 ? "" : "en") + " berechnet und eingetragen")).catch((e) => console.error(e));
       if (ui.status === "ok" && S.ready.days && S.ready.plan) for (const pr of visibleProfiles()) store.backfillPlan(pr.id).catch((e) => console.error(e));
       if (ui.status === "ok" && S.ready.health && S.ready.weights && S.ready.days) for (const pr of visibleProfiles()) if (store.hkOpen(pr.id).length) store.importHealth(pr.id).then((n) => n && toast(n + " Wert" + (n === 1 ? "" : "e") + " aus Apple Health übernommen")).catch((e) => console.error(e));
       schedule();

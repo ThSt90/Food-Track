@@ -25,3 +25,8 @@ Persönliches Ernährungs-Dashboard für Thomas und seine Partnerin. Antworte au
   2. Rezept als Dokument in `recipes` anlegen (Format wie `start-1`); nichts erfinden, Unklares im Chat nennen. **Kategorie immer aus dem Import-Dokument (`category`: `fruehstueck` oder `main`) übernehmen**, nie selbst raten.
   3. **Bild immer mitnehmen:** Seite im eingebauten Browser öffnen, Hauptbild finden (`og:image`, sonst das erste große Rezeptfoto), die Bild-URL im Browser öffnen, Screenshot machen, Schwarzränder abschneiden, als Asset hochladen und die Asset-ID im Feld `image` des Rezepts speichern. Der Shell-Zugriff auf fremde Webseiten ist gesperrt, nur der Browser kommt dran.
   4. Import-Dokument auf `status: uebernommen` setzen.
+- **Essen berechnen (Ablauf, wenn Thomas oder Caro „Essen berechnen“ schreibt):**
+  1. Offene Aufträge lesen: `select path, data from docs where path like 'imports/%' and data->>'type'='mealtext' and data->>'status'='offen'` (Felder `pid`, `date`, `slot`, `text`).
+  2. Text in Posten zerlegen, übliche deutsche Portionsgrößen annehmen, je Posten kcal/Protein/KH/Fett schätzen; die Summe aus den Posten bilden, nichts ohne Annahme erfinden.
+  3. Ergebnis in dasselbe Dokument schreiben: `data = data || jsonb_build_object('status','fertig','result', {title, items:[{name,kcal,protein,carbs,fat}], kcal, protein, carbs, fat, note})`. Die App trägt es beim nächsten Öffnen als gegessene, geschätzte Mahlzeit ein (nie doppelt) und setzt `status: uebernommen`.
+  4. Im Chat kurz Ergebnis und Annahmen nennen.
