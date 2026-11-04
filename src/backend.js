@@ -70,8 +70,10 @@
       if (!force && pending[coll]) return;
       const m = await fetchColl(coll);
       if (pending[coll]) return; // lokale Änderungen laufen noch: nicht überschreiben
-      const s = JSON.stringify([...m.entries()].sort(([a], [b]) => (a < b ? -1 : 1)));
-      if (loaded[coll] && s === sig[coll]) return;
+      const canon = (v) => (Array.isArray(v) ? "[" + v.map(canon).join(",") + "]" : isObj(v) ? "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + canon(v[k])).join(",") + "}" : JSON.stringify(v));
+      const of = (mm) => canon([...mm.entries()].sort(([a], [b]) => (a < b ? -1 : 1)));
+      const s = of(m);
+      if (loaded[coll] && s === of(cache[coll] || new Map())) { sig[coll] = s; return; } // Server = lokaler Stand: nichts neu zeichnen
       sig[coll] = s; cache[coll] = m; loaded[coll] = true; fireAll(coll);
     }
     const write = async (coll, fn) => {

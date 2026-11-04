@@ -468,8 +468,10 @@ html.fit-lock, html.fit-lock body { overflow: hidden; height: 100%; overscroll-b
       if (!force && pending[coll]) return;
       const m = await fetchColl(coll);
       if (pending[coll]) return; // lokale Änderungen laufen noch: nicht überschreiben
-      const s = JSON.stringify([...m.entries()].sort(([a], [b]) => (a < b ? -1 : 1)));
-      if (loaded[coll] && s === sig[coll]) return;
+      const canon = (v) => (Array.isArray(v) ? "[" + v.map(canon).join(",") + "]" : isObj(v) ? "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + canon(v[k])).join(",") + "}" : JSON.stringify(v));
+      const of = (mm) => canon([...mm.entries()].sort(([a], [b]) => (a < b ? -1 : 1)));
+      const s = of(m);
+      if (loaded[coll] && s === of(cache[coll] || new Map())) { sig[coll] = s; return; } // Server = lokaler Stand: nichts neu zeichnen
       sig[coll] = s; cache[coll] = m; loaded[coll] = true; fireAll(coll);
     }
     const write = async (coll, fn) => {
@@ -1814,10 +1816,11 @@ html.fit-lock, html.fit-lock body { overflow: hidden; height: 100%; overscroll-b
     if (window.FR_PROFILE && ui.pid !== window.FR_PROFILE) { ui.pid = window.FR_PROFILE; LS.set("pid", ui.pid); }
     if (!store.profile(ui.pid)) ui.pid = (store.profiles()[0] || {}).id || "p1";
     const views = { heute: vHeute, radar: vRadar, rezepte: vRezepte, einkauf: vEinkauf, mehr: vMehr, historie: vHistorie, gewicht: vGewicht, profil: vProfil };
-    app.innerHTML = header(ui.view === "heute") + (ui.readOnly ? `<div class="notice">Nur Ansicht: Du kannst diese Seite lesen, aber nichts ändern.</div>` : "") + (views[ui.view] || vHeute)();
+    const html = header(ui.view === "heute") + (ui.readOnly ? `<div class="notice">Nur Ansicht: Du kannst diese Seite lesen, aber nichts ändern.</div>` : "") + (views[ui.view] || vHeute)();
+    // Unveränderte Ansicht nicht neu aufbauen: ein Neuzeichnen zwischen Berühren und Loslassen verschluckt auf dem iPhone den Tipp
+    if (html !== ui.lastHtml || app.dataset.v !== ui.view) { app.innerHTML = html; ui.lastHtml = html; app.dataset.v = ui.view; bindSwipe(); }
     const fit = ui.view === "radar" && !!ui.radar.meal;
     app.classList.toggle("fit", fit); document.documentElement.classList.toggle("fit-lock", fit);
-    bindSwipe();
   }
 
   function bootState() {
@@ -1863,7 +1866,8 @@ html.fit-lock, html.fit-lock body { overflow: hidden; height: 100%; overscroll-b
   const NAV = [["radar", "Neu", "sparkle"], ["heute", "Ausgewählt", "checklist"], ["rezepte", "Rezepte", "book"], ["einkauf", "Einkauf", "cart"], ["mehr", "Mehr", "more"]];
   function renderNav() {
     const cur = ["historie", "gewicht", "profil"].includes(ui.view) ? "mehr" : ui.view;
-    $("#nav").innerHTML = `${cur === "rezepte" ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 24)}<span>${t}</span></button>`).join("")}</div>`;
+    const navHtml = `${cur === "rezepte" ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 24)}<span>${t}</span></button>`).join("")}</div>`;
+    if (navHtml !== ui.lastNav) { $("#nav").innerHTML = navHtml; ui.lastNav = navHtml; }
   }
 
   function renderToast() {
@@ -2110,7 +2114,7 @@ html.fit-lock, html.fit-lock body { overflow: hidden; height: 100%; overscroll-b
       if (Math.abs(dx) > limit) {
         card.style.transform = `translate3d(${dx > 0 ? 130 : -130}%,0,0) rotate(${dx > 0 ? 16 : -16}deg)`; card.style.opacity = "0";
         const act = dx > 0 ? (stage2 ? "keep" : "fav") : "skip";
-        setTimeout(() => decide(card.dataset.rid, act), 180);
+        setTimeout(() => { ui.lastHtml = null; decide(card.dataset.rid, act); }, 180);
       } else clear();
     };
     card.addEventListener("pointerup", end); card.addEventListener("pointercancel", end);

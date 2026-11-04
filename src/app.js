@@ -81,10 +81,11 @@
     if (window.FR_PROFILE && ui.pid !== window.FR_PROFILE) { ui.pid = window.FR_PROFILE; LS.set("pid", ui.pid); }
     if (!store.profile(ui.pid)) ui.pid = (store.profiles()[0] || {}).id || "p1";
     const views = { heute: vHeute, radar: vRadar, rezepte: vRezepte, einkauf: vEinkauf, mehr: vMehr, historie: vHistorie, gewicht: vGewicht, profil: vProfil };
-    app.innerHTML = header(ui.view === "heute") + (ui.readOnly ? `<div class="notice">Nur Ansicht: Du kannst diese Seite lesen, aber nichts ändern.</div>` : "") + (views[ui.view] || vHeute)();
+    const html = header(ui.view === "heute") + (ui.readOnly ? `<div class="notice">Nur Ansicht: Du kannst diese Seite lesen, aber nichts ändern.</div>` : "") + (views[ui.view] || vHeute)();
+    // Unveränderte Ansicht nicht neu aufbauen: ein Neuzeichnen zwischen Berühren und Loslassen verschluckt auf dem iPhone den Tipp
+    if (html !== ui.lastHtml || app.dataset.v !== ui.view) { app.innerHTML = html; ui.lastHtml = html; app.dataset.v = ui.view; bindSwipe(); }
     const fit = ui.view === "radar" && !!ui.radar.meal;
     app.classList.toggle("fit", fit); document.documentElement.classList.toggle("fit-lock", fit);
-    bindSwipe();
   }
 
   function bootState() {
@@ -130,7 +131,8 @@
   const NAV = [["radar", "Neu", "sparkle"], ["heute", "Ausgewählt", "checklist"], ["rezepte", "Rezepte", "book"], ["einkauf", "Einkauf", "cart"], ["mehr", "Mehr", "more"]];
   function renderNav() {
     const cur = ["historie", "gewicht", "profil"].includes(ui.view) ? "mehr" : ui.view;
-    $("#nav").innerHTML = `${cur === "rezepte" ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 24)}<span>${t}</span></button>`).join("")}</div>`;
+    const navHtml = `${cur === "rezepte" ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 24)}<span>${t}</span></button>`).join("")}</div>`;
+    if (navHtml !== ui.lastNav) { $("#nav").innerHTML = navHtml; ui.lastNav = navHtml; }
   }
 
   function renderToast() {
@@ -377,7 +379,7 @@
       if (Math.abs(dx) > limit) {
         card.style.transform = `translate3d(${dx > 0 ? 130 : -130}%,0,0) rotate(${dx > 0 ? 16 : -16}deg)`; card.style.opacity = "0";
         const act = dx > 0 ? (stage2 ? "keep" : "fav") : "skip";
-        setTimeout(() => decide(card.dataset.rid, act), 180);
+        setTimeout(() => { ui.lastHtml = null; decide(card.dataset.rid, act); }, 180);
       } else clear();
     };
     card.addEventListener("pointerup", end); card.addEventListener("pointercancel", end);
