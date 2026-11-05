@@ -479,8 +479,13 @@ body { background: transparent; min-height: 100dvh; }
 .abtn.skip { color: var(--text); } .abtn.skip svg { color: var(--bad); }
 .abtn.super[aria-pressed="true"] svg, .abtn.favbtn[aria-pressed="true"] svg { color: currentColor; }
 
+.items { display: flex; flex-direction: column; gap: 8px; }
+.itm { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
+.itm .stepper { height: 40px; background: var(--surface-2); } .itm .stepper button { width: 36px; height: 100%; background: transparent; color: var(--text); } .itm .stepper span { min-width: 48px; font-size: 13px; }
+.itm .kc { min-width: 72px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
 </style>
-<script>window.FR_BUILD="05.11. 10:34";</script>
+<script>window.FR_BUILD="05.11. 16:24";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -1655,6 +1660,17 @@ body { background: transparent; min-height: 100dvh; }
     }
 
     /** Bewusste Übernahme der aktuellen Rezeptwerte in einen bereits gebuchten Verzehr. */
+    /** Mengenfaktor eines Postens in einer geschätzten Mahlzeit ändern (f = Faktor zur gespeicherten Schätzung, 1 = wie geschätzt). Summen werden aus den Posten neu gebildet. */
+    async function scaleManualItem(pid, date, id, index, f) {
+      const m = mealOf(pid, date, id);
+      if (!m || m.recipeId || !m.manual || !Array.isArray(m.manual.items) || !m.manual.items[index]) return false;
+      const fac = Math.max(0.25, Math.min(5, Math.round(Number(f) * 100) / 100)); if (!Number.isFinite(fac)) return false;
+      const items = m.manual.items.map((it, i) => (i === index ? { ...it, f: fac } : it));
+      const sum = (k) => (items.every((it) => it[k] != null) ? Math.round(items.reduce((t, it) => t + it[k] * (it.f > 0 ? it.f : 1), 0)) : null);
+      await updateMeal(pid, date, id, { manual: { ...m.manual, items, kcal: sum("kcal"), protein: sum("protein"), carbs: sum("carbs"), fat: sum("fat") } });
+      return true;
+    }
+
     async function resnapshotMeal(pid, date, id) {
       const m = mealOf(pid, date, id);
       if (m.status === "gegessen") await dayPatch(pid, date, { meals: { [id]: { snap: snapshotFor(m) } } });
@@ -2008,7 +2024,7 @@ body { background: transparent; min-height: 100dvh; }
       linkImports, addLinkImport, restoreRecipe, setImportRecipe, setImportStatus, deleteImport,
       S, subscribe, mondayOf, radarMatches, partnerPlan, backfillPlan, adoptPartner, autoMatch, addMealRequest, mealRequests, applyMealResults, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
       profiles, profile, createDefaultProfiles, saveProfile, energyFor, currentWeight,
-      dayDoc, daySettings, setDayFlag, day, meals, addMeal, setMealStatus, updateMeal, resnapshotMeal, deleteMeal,
+      dayDoc, daySettings, setDayFlag, day, meals, addMeal, setMealStatus, updateMeal, scaleManualItem, resnapshotMeal, deleteMeal,
       foodList, foodMap, recipes, recipe, saveRecipe, deleteRecipe, findDuplicates, toggleFavorite, favSet,
       sportKinds, sportRates, setSportRate, addSportKind, addActivity, deleteActivity, activities,
       radarStack, radarFavCount, radarReset, radarDraw, radarDecide, radarLists, shopping, shoppingSet, shoppingReset, shoppingAdd, shoppingRemove,
@@ -3246,13 +3262,22 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
       <button class="btn primary full">Eintragen</button></form>`;
   }
 
+  /** Posten einer geschätzten Mahlzeit: Menge pro Posten anpassbar (Faktor zur Schätzung), Annahmen der KI zur Nachvollziehbarkeit. */
+  function mealItemsHtml(m) {
+    const its = m.manual.items, fx = (it) => (it.f > 0 ? it.f : 1);
+    const rows = its.map((it, i) => `<div class="itm"><span class="nm">${esc(it.name)}${fx(it) !== 1 ? `<br><span class="note">geschätzt: Faktor 1 → jetzt ${deA(fx(it))}×</span>` : ""}</span>
+      <div class="stepper" role="group" aria-label="Menge"><button data-act="itemF" data-id="${m.id}" data-i="${i}" data-d="-0.25" aria-label="weniger">−</button><span>${deA(fx(it))}×</span><button data-act="itemF" data-id="${m.id}" data-i="${i}" data-d="0.25" aria-label="mehr">+</button></div>
+      <b class="kc">${it.kcal == null ? "–" : de(Math.round(it.kcal * fx(it)))} kcal</b></div>`).join("");
+    const n = m.manual.note ? `<div class="note"><b>Annahmen der Schätzung:</b> ${esc(m.manual.note)}${m.manual.confidence ? ` (Sicherheit: ${esc(m.manual.confidence)})` : ""}</div>` : "";
+    return `<div class="items"><div class="eyebrow">Posten und Mengen</div>${rows}<div class="note">Faktor 1 = wie geschätzt, 0,5 = halbe Menge, 2 = doppelte Menge. Die Summe oben passt sich an.</div>${n}</div>`;
+  }
   function sheetMealMenu() {
     const m = store.meals(ui.pid, ui.date).find((x) => x.id === ui.sheet.id);
     if (!m) return `<div class="note">Eintrag nicht mehr vorhanden.</div>`;
     return `<div><b>${esc(m.title)}</b><div class="note">${esc(SLOT_LABEL[m.slot])} · ${deA(m.portions)} Portion(en) · ${kcal(m.total.kcal)} kcal · ${esc(L.QUALITY_LABEL[m.quality] || "")}</div></div>
       <label class="f">Mahlzeit verschieben<select id="mm-slot" data-change="mealSlot" data-id="${m.id}">${X.SLOTS.map(([k, t]) => `<option value="${k}" ${m.slot === k ? "selected" : ""}>${t}</option>`).join("")}</select></label>
-      ${!m.recipeId ? `<form data-submit="manualEdit" data-id="${m.id}" class="fgrid">${[["kcal", "kcal je Portion"], ["protein", "Protein g"], ["carbs", "KH g"], ["fat", "Fett g"]].map(([k, t]) => `<label class="f">${t}<input id="me-${k}" type="number" inputmode="decimal" min="0" value="${m.per[k] ?? ""}"></label>`).join("")}<button class="btn full">Werte korrigieren</button></form>` : ""}
-      <div class="btns">${m.recipeId && m.recipeExists ? `<button class="btn" data-act="openRecipe" data-id="${m.recipeId}">Rezept öffnen</button>` : ""}<button class="btn danger" data-act="delMeal" data-id="${m.id}">Eintrag entfernen</button></div>`;
+      ${!m.recipeId && m.manual && Array.isArray(m.manual.items) && m.manual.items.length ? mealItemsHtml(m) : ""}
+      ${!m.recipeId && !(m.manual && Array.isArray(m.manual.items) && m.manual.items.length) ? `<form data-submit="manualEdit" data-id="${m.id}" class="fgrid">${[["kcal", "kcal je Portion"], ["protein", "Protein g"], ["carbs", "KH g"], ["fat", "Fett g"]].map(([k, t]) => `<label class="f">${t}<input id="me-${k}" type="number" inputmode="decimal" min="0" value="${m.per[k] ?? ""}"></label>`).join("")}<button class="btn full">Werte korrigieren</button></form>` : ""}      <div class="btns">${m.recipeId && m.recipeExists ? `<button class="btn" data-act="openRecipe" data-id="${m.recipeId}">Rezept öffnen</button>` : ""}<button class="btn danger" data-act="delMeal" data-id="${m.id}">Eintrag entfernen</button></div>`;
   }
 
   /** Auswahlliste statt Tastatur: sinnvolle Schritte je Einheit, der aktuelle Wert ist immer enthalten. */
@@ -3387,6 +3412,12 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
     }),
     resnap: (t) => run("meal:" + t.dataset.id, () => store.resnapshotMeal(ui.pid, ui.date, t.dataset.id)),
     mealMenu: (t) => openSheet("mealMenu", { id: t.dataset.id }),
+    itemF: (t) => run("meal:" + t.dataset.id, async () => {
+      const m = store.meals(ui.pid, ui.date).find((x) => x.id === t.dataset.id); const idx = Number(t.dataset.i);
+      if (!m || !m.manual || !m.manual.items || !m.manual.items[idx]) return;
+      const cur = m.manual.items[idx].f > 0 ? m.manual.items[idx].f : 1;
+      await store.scaleManualItem(ui.pid, ui.date, m.id, idx, cur + Number(t.dataset.d)); renderSheet(true);
+    }),
     delMeal: (t) => run("meal:" + t.dataset.id, async () => { await store.deleteMeal(ui.pid, ui.date, t.dataset.id); closeSheet(); toast("Eintrag entfernt"); }),
     addMeal: (t) => openSheet("addMeal", { slot: t.dataset.slot, tab: "beschreiben", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }),
     partnerTake: async (t) => { await store.addMeal(ui.pid, ui.date, t.dataset.slot, { recipeId: t.dataset.id, status: "geplant", servings: Number(t.dataset.sv) || 4 }); },
@@ -3417,7 +3448,7 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
     },
     dsSave: () => run("ds", async () => {
       const d = ui.sheet && ui.sheet.ds; if (!d || !d.items || d.kcal == null) return;
-      await store.addMeal(ui.pid, ui.date, val("ds-slot") || ui.sheet.slot, { id: ui.sheet.token, title: d.title, manual: { kcal: d.kcal, protein: d.protein, carbs: d.carbs, fat: d.fat, items: d.items }, portions: 1, status: "gegessen" });
+      await store.addMeal(ui.pid, ui.date, val("ds-slot") || ui.sheet.slot, { id: ui.sheet.token, title: d.title, manual: { kcal: d.kcal, protein: d.protein, carbs: d.carbs, fat: d.fat, items: d.items, note: d.note || "", confidence: d.confidence || null }, portions: 1, status: "gegessen" });
       closeSheet();
     }),
     amTab: (t) => { ui.sheet.tab = t.dataset.v; renderSheet(true); },
