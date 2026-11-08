@@ -491,7 +491,7 @@ body { background: transparent; min-height: 100dvh; }
 .sgacts { display: grid; gap: 8px; } .sgacts .btn { width: 100%; height: 48px; min-height: 48px; box-sizing: border-box; }
 
 </style>
-<script>window.FR_BUILD="08.11. 11:43";</script>
+<script>window.FR_BUILD="08.11. 12:00";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2607,7 +2607,7 @@ body { background: transparent; min-height: 100dvh; }
       <button class="btn primary full" data-act="sgGo" ${g.busy ? "disabled" : ""}>${g.busy ? "Rezept wird erstellt …" : "Rezept vorschlagen"}</button>`;
     const r = g.recipe, n = g.ticked.size;
     const grp = SG_KINDS.map(([k, t]) => { const rows = r.ingredients.map((it, i) => [it, i]).filter(([it]) => it.kind === k); return rows.length ? `<div class="eyebrow">${t}</div>${rows.map(([it, i]) => `<label class="sgrow ${g.ticked.has(i) ? "off" : ""}"><input type="checkbox" data-act="sgTick" data-i="${i}" ${g.ticked.has(i) ? "checked" : ""} aria-label="${esc(it.name)} habe ich nicht"><span>${esc(it.name)}</span><b>${it.amount == null ? "" : deA(it.amount) + (it.unit ? " " + esc(it.unit) : "")}</b></label>`).join("")}` : ""; }).join("");
-    return `<div><b style="font-size:18px">${esc(r.title)}</b><div class="note">Vorschlag ${g.round} · ${deA(r.servings)} Portionen${r.prep_minutes ? " · ca. " + r.prep_minutes + " Min." : ""}</div>${r.why ? `<div class="note">${esc(r.why)}</div>` : ""}</div>
+    return `<div><b style="font-size:18px">${esc(r.title)}</b><div class="note">Vorschlag ${g.round} · ${deA(r.servings)} Portionen${r.prep_minutes ? " · ca. " + r.prep_minutes + " Min." : ""}</div>${r.why ? `<div class="note">${esc(r.why)}</div>` : ""}${r.taste_score ? `<div class="note">Geschmacks-Check der KI: ${r.taste_score}/10${r.taste_check ? " – " + esc(r.taste_check) : ""}</div>` : ""}${r.unused && r.unused.length ? `<div class="note">Nicht verwendet: ${esc(r.unused.map((u) => u.name + (u.reason ? " (" + u.reason + ")" : "")).join(", "))}</div>` : ""}</div>
       <div class="note"><b>Hake an, was du NICHT hast.</b></div>${grp}
       <details><summary class="link acc">Zubereitung ansehen</summary><ol class="sgsteps">${r.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol></details>
       ${r.note ? `<div class="note">${esc(r.note)}</div>` : ""}
