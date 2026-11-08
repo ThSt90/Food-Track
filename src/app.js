@@ -29,7 +29,7 @@
     scale: "M4 20h16l-2-13H6zM12 7V4M9 12l3-2 3 2",
     user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
     star: "M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z",
-    check: "M5 12.5l4.5 4.5L19 7.5", next: "M5 5l7 7-7 7M13 5l7 7-7 7", x: "M6 6l12 12M18 6 6 18", undo: "M9 7 4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3",
+    check: "M5 12.5l4.5 4.5L19 7.5", next: "M5 5l7 7-7 7M13 5l7 7-7 7", x: "M6 6l12 12M18 6 6 18", undo: "M9 7 4 12l5 5M4 12h11a5 5 0 0 1 0 10h-3", redo: "M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5",
     plus: "M12 5v14M5 12h14", left: "M15 5l-7 7 7 7", right: "M9 5l7 7-7 7", cam: "M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
     trash: "M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13",
   };
@@ -102,7 +102,7 @@
   applyTheme(LS.get("theme", "light"));
   // Akzentfarbe: genau die gewählte Farbe wird für Flächen verwendet; Schrift/Text bekommt automatisch eine dunklere (hell) bzw. hellere (dunkel) Variante
   const hslToHex = (h, s, l) => { s /= 100; l /= 100; const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return "#" + [f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join(""); };
-  const ACCENTS = [[150, "Salbei"], [172, "Mint"], [200, "Himmel"], [222, "Hortensie"], [262, "Lavendel"], [305, "Orchidee"], [345, "Rosé"], [14, "Pfirsich"], [32, "Aprikose"], [48, "Butter"]].map(([h, n]) => [hslToHex(h, 45, 80), n]);
+  const ACCENTS = [[148, "Salbei"], [178, "Türkis"], [205, "Himmel"], [228, "Blau"], [268, "Lavendel"], [312, "Orchidee"], [350, "Rosé"], [10, "Koralle"], [34, "Aprikose"], [54, "Gelb"]].map(([h, n]) => [hslToHex(h, 55, 70), n]);
   function hexParts(hex) { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2, sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0; let h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; const lin = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)); return { h: Math.round(((h * 60) + 360) % 360), s: Math.round(sat * 100), l: Math.round(l * 100), lum: 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) }; }
   const accentHex = () => { const a = LS.get("accent", null); if (!a) return null; if (a.hex) return String(a.hex).toLowerCase(); return typeof a.h === "number" ? hslToHex(a.h, 45, 80) : null; };
   function applyAccent() {
@@ -126,14 +126,14 @@
     const dateBar = withDate ? `<div class="datebar"><button class="iconbtn" data-act="day" data-n="-1" aria-label="Vortag">${ic("left", 18)}</button>
       <div style="text-align:center"><b>${esc(relDay(d))}</b><div class="sub">${esc(fmtDate(d))}</div></div>
       <button class="iconbtn" data-act="day" data-n="1" aria-label="Folgetag">${ic("right", 18)}</button></div>` : "";
-    return `<header class="top"><button class="iconbtn" data-act="theme" aria-label="Hell oder dunkel umschalten" title="Hell / Dunkel" style="margin-right:auto">${themeIsDark() ? "☀︎" : "☾"}</button>${ps.length > 1 ? `<div class="who" role="group" aria-label="Person">${who}</div>` : ""}</header>${dateBar}`;
+    return `<header class="top">${ps.length > 1 ? `<div class="who" role="group" aria-label="Person">${who}</div>` : ""}</header>${dateBar}`;
   }
 
   const assetUrl = (id) => (window.FR_ASSET ? window.FR_ASSET(id) : "/_blob/" + id);
   const NAV = [["radar", "Neu", "sparkle"], ["heute", "Ausgewählt", "checklist"], ["rezepte", "Rezepte", "book"], ["einkauf", "Einkauf", "cart"], ["mehr", "Mehr", "more"]];
   function renderNav() {
     const cur = ["historie", "gewicht", "profil", "rueckblick", "health"].includes(ui.view) ? "mehr" : ui.view;
-    const navHtml = `${cur === "rezepte" ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 24)}<span>${t}</span></button>`).join("")}</div>`;
+    const navHtml = `${cur === "rezepte" ? `<button class="fab" data-act="fabLink" aria-label="Rezept-Link einfügen" title="Rezept-Link einfügen">${ic("plus", 26)}<span>Link</span></button>` : ""}<div class="in">${NAV.map(([k, t, i]) => `<button data-act="view" data-v="${k}" aria-label="${t}" title="${t}" ${k === cur ? 'aria-current="page"' : ""}>${ic(i, 28)}</button>`).join("")}</div>`;
     if (navHtml !== ui.lastNav) { $("#nav").innerHTML = navHtml; ui.lastNav = navHtml; }
   }
 
@@ -143,7 +143,7 @@
   }
   let toastTimer = null;
   // Keine Bestätigungs-Popups: nur Fehler, Warnungen und die zwei Hinweise, die sonst fehlen würden
-  const TOAST_OK = /^(Kopiert|\d+ Werte? aus Apple|Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|„.*“ gelöscht)/;
+  const TOAST_OK = /^(Kopiert|\d+ Werte? aus Apple|Konnte|Speicher|Nur Ansicht|Bild konnte|Bitte|Das ist kein|Kopieren nicht|\d+ Mahlzeit|Keine weiteren|Sicherung nicht|Liste kopiert|Link vorgemerkt|Match|Einkaufsliste|Nichts zurückzusetzen|„.*“ gelöscht)/;
   function toast(text, undo) { if (!TOAST_OK.test(String(text))) return; ui.toast = { text, undo }; renderToast(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { ui.toast = null; renderToast(); }, undo ? 6000 : 3000); }
 
   // ================================================================== Gemeinsame Bausteine
@@ -189,21 +189,15 @@
     return `<input id="am-q" type="search" placeholder="Rezept suchen" value="${esc(ui.sheet.q || "")}" data-input="amq" aria-label="Rezept suchen">
       <div class="minilist">${rs.map((r) => `<div><span><b>${esc(r.title)}</b><br><span class="note">${kcal(r.nut.perPortion.kcal)} kcal je Portion</span></span><button class="btn sm primary" data-act="weekPick" data-id="${r.id}">Wählen</button></div>`).join("") || `<div class="note">Keine Rezepte gefunden.</div>`}</div>`;
   }
-  /** Verbrauch (Ruhe + Aktivität, aus Apple Health) gegenüber dem Gegessenen – nur zum Vergleichen, das Tagesbudget bleibt unberührt. */
-  function balanceCard(d) {
-    const bn = d.burn; if (!bn) return "";
-    const total = (bn.rest || 0) + (bn.active || 0), eaten = d.budget.eaten, diff = Math.round(total - eaten), rem = d.budget.remaining;
-    const live = d.date === store.today(), at = bn.at ? new Date(bn.at) : null;
-    const hhmm = at ? String(at.getHours()).padStart(2, "0") + ":" + String(at.getMinutes()).padStart(2, "0") : "";
-    const part = bn.rest == null || bn.active == null;
-    const parts = [bn.rest != null ? "Ruhe " + de(bn.rest) : "", bn.active != null ? "Aktiv " + de(bn.active) : ""].filter(Boolean).join(" + ");
-    return `<section class="card bal"><h3>${live ? "Heute verbraucht" : "Verbraucht"}</h3>
-      <div class="bigline"><b>${de(total)}</b><span>kcal${live ? " bisher" : ""}</span></div>
-      <div class="note">${parts}${live && hhmm ? " · Stand " + hhmm : ""}${part ? " · nur ein Teil des Verbrauchs vorhanden" : ""}</div>
-      <div class="minilist"><div><span>Gegessen</span><b>${de(eaten)} kcal</b></div>
-        <div><span>${diff >= 0 ? "Defizit" : "Überschuss"}</span><b class="${diff >= 0 ? "ok" : "bad"}">${de(Math.abs(diff))} kcal</b></div>
-        ${rem != null ? `<div><span>Noch verfügbar (Tagesziel)</span><b>${de(Math.max(0, rem))} kcal</b></div>` : ""}</div>
-      ${live ? `<div class="note">Der Verbrauch steigt im Lauf des Tages, das Defizit ändert sich mit.</div>` : ""}</section>`;
+  /** Drei Kennzahlen, nicht mehr: Gesamtverbrauch pro Tag, heute verbraucht (Ruhe + Aktivität aus Apple Health), noch verfügbar. */
+  function kpiCard(d, e) {
+    const bn = d.burn, burned = bn ? (bn.rest || 0) + (bn.active || 0) : null, rem = d.budget.remaining;
+    const g = d.budget.goal, cut = g != null && e && e.tdee != null ? Math.round(e.tdee - g) : 0;
+    const calc = g == null ? "" : `<div class="calc"><div><span>Tagesziel</span><b>${de(g)} kcal</b></div>${cut > 0 ? `<div class="sub"><span>Abnehmziel: ${de(cut)} kcal weniger als dein Gesamtverbrauch (${de(e.tdee)} − ${de(cut)})</span></div>` : ""}${d.budget.sport > 0 ? `<div><span>+ angerechneter Sport</span><b>${de(d.budget.sport)} kcal</b></div>` : ""}<div><span>− gegessen</span><b>${de(d.budget.eaten)} kcal</b></div></div>`;
+    return `<section class="kpis" aria-label="Kennzahlen"><div class="stats">
+        <div class="stat"><b>${e && e.tdee != null ? de(e.tdee) : "–"}</b><span>Gesamtverbrauch pro Tag (kcal)</span></div>
+        <div class="stat"><b>${burned != null ? de(burned) : "–"}</b><span>Heute verbraucht (kcal)</span></div></div>
+      <div class="pot ${rem != null && rem < 0 ? "over" : ""}"><div class="eyebrow">Noch verfügbar</div><div class="head"><div class="big">${rem == null ? "–" : de(rem)}<small>kcal</small></div></div>${calc}</div></section>`;
   }
 
   function vTag() {
@@ -221,50 +215,33 @@
     const eatenPct = total ? Math.round((b.eaten / total) * 100) : 0;
     const over = b.remaining != null && b.remaining < 0;
     const planOver = b.afterPlan != null && b.afterPlan < 0;
-    if (st.goalKcal != null) extra += `<section class="card" aria-label="Kalorienbudget">
-      <div class="row"><div><h2>Kalorien heute</h2><div class="sub">${st.goalKcal != null ? `Ziel ${de(st.goalKcal)} kcal${b.sport ? ` · Sport +${de(b.sport)}` : ""}${st.frozen ? "" : ""}` : "Ziel: keine Angabe"}</div></div>
-      ${ring(total ? de(eatenPct) + "%" : "–", eatenPct, over ? "bad" : eatenPct > 85 ? "low" : "hi", "gegessen")}</div>
-      <div class="chips">${b.remaining == null ? `<span class="chip">Budget: keine Angabe</span>` : over ? `<span class="chip bad">überschritten</span>` : planOver ? `<span class="chip warn">Plan zu groß</span>` : `<span class="chip ok">im Budget</span>`}
-        ${st.sportDone ? `<span class="chip acc">Sport ✓</span>` : ""}${st.complete ? `<span class="chip line">vollständig erfasst</span>` : ""}
-        ${d.unknown ? `<span class="chip warn">Werte unvollständig</span>` : ""}</div>
-      <div class="strip"><span class="eyebrow">Tag</span>
-        <div class="v"><b>${kcal(st.goalKcal)}</b><small>Ziel</small></div><span class="sep">›</span>
-        <div class="v"><b>${de(b.eaten)}</b><small>gegessen</small></div><span class="sep">›</span>
-        <div class="v"><b>${de(b.planned)}</b><small>geplant</small></div><span class="sep">›</span>
-        <div class="v"><b>+${de(b.sport)}</b><small>Sport</small></div></div>
-      <div class="pot ${over ? "over" : ""}">
-        <div class="eyebrow">Noch frei</div>
-        <div class="head"><div class="big">${b.remaining == null ? "–" : de(b.remaining)}<small>kcal</small></div>
-          <div class="side"><b class="${planOver ? "neg" : ""}">≈ ${b.afterPlan == null ? "–" : de(b.afterPlan)} kcal</b><span>nach Plan</span></div></div>
-        ${track(total, b.eaten, b.planned, { pin: true, flag: b.eaten + b.planned <= total ? b.eaten + b.planned : null })}
-        <div class="legend"><span>0</span><span><i style="background:var(--accent)"></i>gegessen</span><span><i style="background:var(--accent-2)"></i>geplant</span><span>${total ? "Budget " + de(total) : ""}</span></div>
-      </div>
-      ${b.eatenUnknown || b.plannedUnknown ? `<div class="note">${b.eatenUnknown ? `${b.eatenUnknown} gegessene Mahlzeit(en) ohne Kalorienwert – nicht eingerechnet. ` : ""}${b.plannedUnknown ? `${b.plannedUnknown} geplante ohne Wert.` : ""}</div>` : ""}
-      <div class="macros">${[["protein", "Protein"], ["carbs", "Kohlenhydrate"], ["fat", "Fett"]].map(([k, t]) => `<div class="macro"><span>${t}</span><b>${de(d.macros[k].eaten)} g</b>${d.macros[k].planned ? `<span>+${de(d.macros[k].planned)} g geplant</span>` : `<span>&nbsp;</span>`}</div>`).join("")}</div>
-      ${e && e.warnings.length ? `<div class="notice">${esc(e.warnings.join(" "))}</div>` : ""}
-    </section>`;
+
 
     let out = "";
     // Abendessen zuerst und groß, dann die übrigen Mahlzeiten
     const order = ["abend", "mittag", "fruehstueck"];
+    const ppAll = store.partnerPlan(pid, date).filter((m) => m.recipeId);
+    const partnerRows = (key, own) => ppAll.filter((m) => m.slot === key).map((m) => {
+      if (own.some((o) => o.recipeId === m.recipeId)) return "";
+      const have = false;
+      return `<div class="meal partner"><div><div class="t">${m.recipeId && store.S.recipes[m.recipeId] ? `<button class="link" style="padding:0;text-align:left" data-act="openRecipe" data-id="${m.recipeId}">${esc(m.title)}</button>` : esc(m.title)}</div><div class="m"><span class="chip line">${esc(m.who)}</span><span class="note">für ${deA(m.servings)} Pers.</span></div></div>${have ? `<span class="note">auch bei dir</span>` : `<div class="meal-acts"><button class="btn sm" data-act="partnerTake" data-id="${m.recipeId}" data-slot="${key}" data-sv="${m.servings > 0 ? m.servings : 4}">Auch für mich</button></div>`}</div>`;
+    }).join("");
     for (const key of order) {
       const s = d.slots.find((x) => x.key === key);
+      const prow = partnerRows(key, s.meals);
       out += `<section class="slot ${key === "abend" ? "dinner" : ""}"><div class="slot-head"><h3>${key === "abend" ? "Heute Abend" : esc(s.label)}</h3>
         <button class="btn sm" data-act="addMeal" data-slot="${key}">${ic("plus", 16)} Eintrag</button></div>
         ${s.multiOpen ? `<div class="note">Mehrere Gerichte vorgemerkt – die Prognose zählt alle. Entferne, was du nicht isst.</div>` : ""}
-        ${s.meals.length ? s.meals.map(mealRow).join("") : `<div class="note">${key === "abend" ? "Noch nichts geplant. Unter „Entdecken“ erst Favoriten sammeln, dann daraus fürs Kochen wählen – oder einen Eintrag anlegen." : "Kein Eintrag."}${key === "abend" ? `<div><button class="btn sm primary" data-act="view" data-v="radar" style="margin-top:8px">Zu „Neu“ wechseln</button></div>` : ""}</div>`}</section>`;
+        ${s.meals.length ? s.meals.map(mealRow).join("") : prow ? "" : `<div class="note">${key === "abend" ? "Noch nichts geplant. Unter „Entdecken“ erst Favoriten sammeln, dann daraus fürs Kochen wählen – oder einen Eintrag anlegen." : "Kein Eintrag."}${key === "abend" ? `<div><button class="btn sm primary" data-act="view" data-v="radar" style="margin-top:8px">Zu „Neu“ wechseln</button></div>` : ""}</div>`}${prow}</section>`;
     }
 
-    // Sport
-    extra += `<section class="slot"><div class="slot-head"><h3>Sport</h3><button class="btn sm" data-act="addSport">${ic("plus", 16)} Aktivität</button></div>
-      <button class="toggle" data-act="flag" data-flag="sportDone" aria-pressed="${st.sportDone}"><span><b>Sport gemacht</b><br><span class="note">Nur Dokumentation – bringt allein keine Kalorien.</span></span><span class="sw"></span></button>
-      ${d.activities.map((a) => `<div class="minilist"><div><span><b>${esc(a.kindName)}</b>${a.minutes ? " · " + de(a.minutes) + " Min" : ""}${a.intensity ? " · " + esc(a.intensity) : ""}<br><span class="note">${a.kcal ? `${de(a.kcal)} kcal · ${esc(a.kcalSource)}` : "kein Verbrauchswert – nicht angerechnet"}</span></span>
-        <button class="btn sm ghost" data-act="delSport" data-id="${a.id}" aria-label="Aktivität entfernen">${ic("trash", 16)}</button></div></div>`).join("")}
-      ${d.activities.length && st.sportCreditPct < 100 ? `<div class="note">Angerechnet werden ${st.sportCreditPct} % der Verbrauchswerte (Profileinstellung).</div>` : ""}</section>`;
-
-    extra += `<button class="toggle" data-act="flag" data-flag="complete" aria-pressed="${st.complete}"><span><b>Tag vollständig erfasst</b><br><span class="note">Nur vollständige Tage zählen in Statistik und Zielerreichung.</span></span><span class="sw"></span></button>`;
-    const openX = ui.open.has("extras");
-    return out + balanceCard(d) + `<section class="slot extras"><button class="toggle" data-act="toggleExtras" aria-expanded="${openX}"><span><b>Extras: Kalorien und Sport</b><br><span class="note">${st.goalKcal != null ? `${de(b.eaten)} kcal gegessen · ` : ""}optional, nicht der Fokus</span></span><span>${openX ? "▴" : "▾"}</span></button></section>${openX ? extra : ""}`;
+    const pp = store.partnerPlan(pid, date).filter((m) => m.recipeId);
+    const partner = "";
+    const describeBtn = `<button class="btn big full" data-act="describe">${ic("plus", 18)} Gegessenes beschreiben</button>`;
+    const wait = store.mealRequests(pid).filter((m) => m.date === date);
+    const waiting = wait.length ? `<section class="card" aria-label="Wartet auf Berechnung"><h3>Wartet auf Berechnung</h3><div class="minilist">${wait.map((m) => `<div><span style="display:flex;gap:10px;align-items:center">${m.image ? `<img class="dsthumb" src="${esc(assetUrl(m.image))}" alt="">` : ""}${esc(m.text || "Foto")}</span><button class="btn sm ghost" data-act="dsDel" data-id="${m.id}" aria-label="Entfernen">${ic("trash", 15)}</button></div>`).join("")}</div><div class="note">Sag Claude „Essen berechnen“, dann steht es hier als Mahlzeit.</div></section>` : "";
+    // Kalorienanzeige: bei Thomas (Profil 1) oben, bei Caro (Profil 2) ganz ausgeblendet
+    return pid === "p2" ? describeBtn + waiting + out + partner + extra : kpiCard(d, e) + describeBtn + waiting + out + partner + extra;
   }
 
   function mealRow(m) {
@@ -272,12 +249,12 @@
     const portions = `<div class="stepper" role="group" aria-label="Portionen"><button data-act="portion" data-id="${m.id}" data-d="-0.5" aria-label="weniger">−</button><span>${deA(m.portions)} P.</span><button data-act="portion" data-id="${m.id}" data-d="0.5" aria-label="mehr">+</button></div>`;
     const acts = m.status === "gegessen"
       ? `${portions}<button class="btn sm ghost" data-act="status" data-id="${m.id}" data-s="geplant">Doch nicht gegessen</button>${m.recipeChanged ? `<button class="btn sm" data-act="resnap" data-id="${m.id}">Neue Rezeptwerte übernehmen</button>` : ""}`
-      : `${m.recipeId ? `<button class="btn sm" data-act="cookStart" data-id="${m.recipeId}" data-sv="${m.servings > 0 ? m.servings : 4}">Kochen</button>` : ""}<button class="btn sm primary" data-act="status" data-id="${m.id}" data-s="gegessen">${ic("check", 16)} Gegessen</button>${portions}
+      : `${m.recipeId ? `<button class="btn sm" data-act="cookStart" data-id="${m.recipeId}" data-sv="${m.servings > 0 ? m.servings : 4}">Kochmodus</button>` : ""}<button class="btn sm primary" data-act="status" data-id="${m.id}" data-s="gegessen">${ic("check", 16)} Gegessen</button>${portions}${m.recipeId ? `<div class="stepper" role="group" aria-label="Kochen für"><button data-act="svMeal" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button><span>Kochen für ${deA(m.servings > 0 ? m.servings : 4)}</span><button data-act="svMeal" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></div>` : ""}
          `;
-    return `<div class="meal ${m.status === "gegessen" ? "eaten" : ""}">
+    return `<div class="meal ${m.status === "gegessen" ? "eaten" : ""}" ${m.status === "gegessen" ? "" : `data-mid="${m.id}"`}>
       ${img(m.image, "", m.title)}
       <div><div class="t">${m.recipeExists ? `<button class="link" style="padding:0;text-align:left" data-act="openRecipe" data-id="${m.recipeId}">${esc(m.title)}</button>` : esc(m.title)}</div>
-        <div class="m"><span class="status ${m.status}">${statusTxt}</span>${m.recipeId && m.status !== "gegessen" ? `<span class="chip line" style="gap:2px;padding:2px 4px"><button class="link" style="padding:0 8px" data-act="svMeal" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button>Kochen für ${deA(m.servings > 0 ? m.servings : 4)}<button class="link" style="padding:0 8px" data-act="svMeal" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></span>` : ""}${m.recipeId && (m.slot === "mittag" || m.slot === "abend") && m.status !== "gegessen" ? `<button class="chip line" data-act="mealSwap" data-id="${m.id}" aria-label="Zwischen Mittag und Abend wechseln">${m.slot === "mittag" ? "→ Abend" : "→ Mittag"}</button>` : ""}${m.quality !== "original" && m.quality !== "berechnet" ? qualityChip(m.quality) : ""}${m.recipeChanged ? `<span class="chip warn">Rezept geändert</span>` : ""}</div></div>
+        <div class="m"><span class="status ${m.status}">${statusTxt}</span>${m.quality !== "original" && m.quality !== "berechnet" ? qualityChip(m.quality) : ""}${m.recipeChanged ? `<span class="chip warn">Rezept geändert</span>` : ""}</div></div>
       <div class="k">${kcal(m.total.kcal)}<small>kcal${m.portions !== 1 && m.per.kcal != null ? ` · ${de(m.per.kcal)}/P.` : ""}</small></div>
       <div class="meal-acts">${acts}<button class="btn sm ghost" data-act="mealMenu" data-id="${m.id}" aria-label="Weitere Aktionen">⋯</button></div></div>`;
   }
@@ -342,14 +319,16 @@
 
   function vRadar() {
     const f = ui.radar, fav = f.stage === "fav";
-    if (!f.meal) return `<div class="chooser"><div class="guck" aria-hidden="true">N' Guck Guck 👀</div><h2>Was suchst du?</h2><div class="note">Frühstück und Mittag/Abend bleiben getrennt.</div>
-      <button class="btn primary big" data-act="pickMeal" data-v="main">Mittag / Abendessen</button>
-      <button class="btn big" data-act="pickMeal" data-v="fruehstueck">Frühstück</button></div>`;
+    if (!f.meal) {
+      const rs = store.recipes(ui.pid), nM = rs.filter((r) => r.category !== "fruehstueck").length, nF = rs.filter((r) => r.category === "fruehstueck").length;
+      const card = (v, slot, emoji, title, n) => `<button class="pick" data-act="pickMeal" data-v="${v}" data-slot="${slot}"><span class="pe" aria-hidden="true">${emoji}</span><span class="pt"><b>${title}</b><small>${n} ${n === 1 ? "Rezept" : "Rezepte"}</small></span><span class="pa" aria-hidden="true">${ic("right", 20)}</span></button>`;
+      return `<div class="chooser">${card("fruehstueck", "fruehstueck", "🥐", "Frühstück", nF)}${card("main", "mittag", "🍝", "Mittagessen", nM)}${card("main", "abend", "🍽️", "Abendessen", nM)}</div>`;
+    }
     let stack = store.radarStack(ui.pid, ui.date, f);
     if (ui.later.length) { const ix = (id) => ui.later.indexOf(id); stack = [...stack.filter((r) => ix(r.id) < 0), ...stack.filter((r) => ix(r.id) >= 0).sort((a, b) => ix(a.id) - ix(b.id))]; }
     const total = Object.keys(store.S.recipes).length;
     const nFav = store.radarFavCount(ui.pid, ui.date, f);
-    let out = `<div class="seg2">${fav ? `<button class="btn" data-act="stage" data-v="alle">${ic("left", 16)} Sammeln</button>` : ""}<button class="btn" data-act="resetDeck">${ic("undo", 16)} Neu starten</button></div>`;
+    let out = `<div class="seg2">${fav ? `<button class="btn" data-act="stage" data-v="alle">${ic("left", 16)} Sammeln</button>` : ""}<button class="btn" data-act="resetDeck">${ic("redo", 16)} Neu starten</button><button class="btn" data-act="describe">${ic("plus", 16)} Essen erfassen</button></div>`;
     const right = fav ? "keep" : "fav";
     if (!total) {
       out += `<div class="empty"><b>Noch keine Rezepte in der Bibliothek</b><span>Füge oben über „+ Link“ ein Rezept hinzu oder lege eins an. Danach kannst du hier Gerichte durchwischen.</span></div>`;
@@ -416,7 +395,7 @@
       }
       const limit = Math.min(150, card.offsetWidth * 0.34);
       if (Math.abs(vx) > 1.2 && Math.abs(dx) > 70) dx = (vx > 0 ? 1 : -1) * (limit + 1);
-      if (dx > limit && stage2 && ui.radar.meal === "main") { // Stufe 2, rechts: bei Mittag/Abend erst fragen, zu welcher Mahlzeit
+      if (dx > limit && stage2 && ui.radar.meal === "main" && !ui.radar.target) { // Stufe 2, rechts: bei Mittag/Abend erst fragen, zu welcher Mahlzeit
         clear(); ACT.askSlot(card.dataset.rid); return;
       }
       if (Math.abs(dx) > limit) {
@@ -429,6 +408,7 @@
   }
 
   async function decide(rid, action, servings, slot) {
+    if (action === "keep" && !slot && ui.radar.target) slot = ui.radar.target;
     try { LS.set("hintSeen", true); } catch (e) { /* ohne Speicher weiter */ }
     if (action === "fav") toast("In der Auswahl"); if (action === "super") toast("★ Superlike – als Favorit gespeichert");
     await run("decide:" + rid, async () => {
@@ -455,7 +435,7 @@
     if (l.sort === "kcal-") rs = [...rs].sort((a, b) => (b.nut.perPortion.kcal ?? -1) - (a.nut.perPortion.kcal ?? -1));
     if (l.sort === "zeit") rs = [...rs].sort((a, b) => (a.prepMinutes ?? 999) - (b.prepMinutes ?? 999));
     const chip = (k, v, t) => `<button class="chip line" data-act="lfilter" data-k="${k}" data-v="${v ?? ""}" aria-pressed="${l[k] === v || (k === "fav" && l.fav && v === true)}">${esc(t)}</button>`;
-    return `<div class="row" style="align-items:center"><h2>Rezepte</h2><div class="btns"><button class="btn sm" data-act="newRecipe">${ic("plus", 16)} Neu</button><button class="btn sm primary" data-act="importStart">${ic("cam", 16)} Screenshot</button></div></div>
+    return `<div class="row" style="align-items:center"><h2>Rezepte</h2><div class="btns">${suggestApi() ? `<button class="btn sm primary" data-act="sgStart">${ic("sparkle", 16)} Aus Zutaten</button>` : `<button class="btn sm" data-act="newRecipe">${ic("plus", 16)} Neu</button><button class="btn sm primary" data-act="importStart">${ic("cam", 16)} Screenshot</button>`}</div></div>
       <div class="search"><input id="lib-q" type="search" placeholder="Gericht oder Zutat suchen" value="${esc(l.q)}" data-input="libq" aria-label="Suchen">
         <select id="lib-sort" data-change="libsort" aria-label="Sortierung" style="width:auto">${[["name", "A–Z"], ["kcal", "kcal ↑"], ["kcal-", "kcal ↓"], ["zeit", "Zeit ↑"]].map(([k, t]) => `<option value="${k}" ${l.sort === k ? "selected" : ""}>${t}</option>`).join("")}</select></div>
       <div class="filters">${chip("fav", true, "★ Favoriten")}${X.CATS.map(([k]) => chip("cat", k, CAT_SHORT[k])).join("")}${chip("max", 20, "≤ 20 Min")}${chip("max", 40, "≤ 40 Min")}${allTags.map((t) => chip("tag", t, t)).join("")}</div>
@@ -518,7 +498,7 @@
     const fo = (sel) => `<option value="auto" ${sel === "auto" ? "selected" : ""}>automatisch zuordnen</option><option value="none" ${sel === "none" ? "selected" : ""}>ohne Referenz</option>${foods.map((f) => `<option value="${f.id}" ${sel === f.id ? "selected" : ""}>${esc(f.name)} (${de(f.kcal)} kcal/100 g)</option>`).join("")}`;
     const auto = (name) => { const id = L.matchFood(name, foods); const f = foods.find((x) => x.id === id); return f ? `→ ${f.name}` : name ? "→ keine Referenz gefunden" : ""; };
     return `${ed.importInfo ? `<div class="notice acc">${esc(ed.importInfo)}</div>` : ""}
-      ${(ed.unsure || []).length || (ed.missing || []).length ? `<div class="notice">${ed.missing.length ? `Nicht im Screenshot gefunden: ${esc(ed.missing.join(", "))}. ` : ""}${ed.unsure.length ? `Bitte prüfen: ${esc(ed.unsure.join(" · "))}` : ""}</div>` : ""}
+      ${(ed.unsure || []).length || (ed.missing || []).length ? `<div class="notice">${ed.missing.length ? `Nicht in der Vorlage gefunden: ${esc(ed.missing.join(", "))}. ` : ""}${ed.unsure.length ? `Bitte prüfen: ${esc(ed.unsure.join(" · "))}` : ""}</div>` : ""}
       ${ed.dupes && ed.dupes.length ? `<div class="notice">Mögliches Duplikat: ${ed.dupes.map((d) => `„${esc(d.title)}“ (${d.score} %)`).join(", ")}. Nochmal „Speichern“ legt trotzdem ein neues Rezept an.</div>` : ""}
       ${ed.image ? `<div class="crop"><canvas id="crop-canvas" width="600" height="400"></canvas></div>
         <div class="eyebrow">Bildausschnitt</div><div class="fgrid">${[["l", "Links"], ["r", "Rechts"], ["t", "Oben"], ["b", "Unten"]].map(([k, t]) => `<label class="f">${t} (${Math.round(ed.box[k])} %)<input id="crop-${k}" type="range" min="0" max="100" step="1" value="${ed.box[k]}" data-input="crop" data-k="${k}"></label>`).join("")}</div>
@@ -555,16 +535,62 @@
       <div class="btns"><button class="btn primary" data-act="saveRecipe">${ed.saving ? "Speichert …" : "Speichern"}</button><button class="btn" data-act="closeSheet">Abbrechen</button></div>`;
   }
 
+  // ---- Aus Zutaten kochen: einsprechen → Vorschlag → abhaken, was fehlt → neu vorschlagen, bis alles da ist
+  const suggestApi = () => !!(window.FR_SUGGEST && window.FR_CONFIG && window.FR_CONFIG.ai === "api");
+  const sgParse = (text) => [...new Set(String(text || "").split(/[,;\n]+|\s+und\s+|\s+sowie\s+/i).map((x) => x.replace(/^\s*(und|auch|noch|dazu)\s+/i, "").trim()).filter((x) => x.length > 1))].slice(0, 40);
+  const SG_KINDS = [["vorhanden", "Aus deinem Vorrat"], ["zusaetzlich", "Zusätzlich nötig – hast du das?"], ["gewuerz", "Gewürze und Basics (angenommen vorhanden)"]];
+  function sheetSuggest() {
+    const g = ui.sheet.sg;
+    if (g.stage === "input") return `<div class="note">Sag oder schreib, was du da hast, oder was du heute essen möchtest. Gängige Gewürze, Salz, Öl und Essig gehe ich als vorhanden aus. Das Rezept erstellt die KI selbst, es wird nicht im Internet gesucht.</div>
+      <label class="f">Zutaten oder Wunschgericht<textarea id="sg-text" rows="4" placeholder="z. B. Hähnchenbrust, Brokkoli, Reis, 2 Eier – oder: Ich möchte heute eine Kürbissuppe essen" data-input="sgText">${esc(g.text)}</textarea></label>
+      <div class="btns">${getSR() ? `<button class="btn" data-act="sgMic" aria-pressed="${!!g.mic}">${g.mic ? "■ Aufnahme beenden" : "🎙 Einsprechen"}</button>` : ""}
+        <label class="f" style="flex:1;min-width:120px">Portionen<select id="sg-sv" data-change="sgSv">${[1, 2, 3, 4, 5, 6].map((n) => `<option value="${n}" ${g.servings === n ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>
+      <div class="eyebrow">Wofür?</div><div class="filters">${X.CATS.map(([k]) => `<button class="chip line" data-act="sgCat" data-v="${k}" aria-pressed="${g.cat === k}">${CAT_SHORT[k]}</button>`).join("")}</div>
+      ${g.error ? `<div class="notice">${esc(g.error)}</div>` : ""}
+      <button class="btn primary full" data-act="sgGo" ${g.busy ? "disabled" : ""}>${g.busy ? "Rezept wird erstellt …" : "Rezept vorschlagen"}</button>`;
+    const r = g.recipe, n = g.ticked.size;
+    const grp = SG_KINDS.map(([k, t]) => { const rows = r.ingredients.map((it, i) => [it, i]).filter(([it]) => it.kind === k); return rows.length ? `<div class="eyebrow">${t}</div>${rows.map(([it, i]) => `<label class="sgrow ${g.ticked.has(i) ? "off" : ""}"><input type="checkbox" data-act="sgTick" data-i="${i}" ${g.ticked.has(i) ? "checked" : ""} aria-label="${esc(it.name)} habe ich nicht"><span>${esc(it.name)}</span><b>${it.amount == null ? "" : deA(it.amount) + (it.unit ? " " + esc(it.unit) : "")}</b></label>`).join("")}` : ""; }).join("");
+    const tabs = g.options && g.options.length > 1 ? `<div class="filters">${g.options.map((o, i) => `<button class="chip line" data-act="sgPick" data-i="${i}" aria-pressed="${g.pick === i}">${o.variant === "besonders" ? "Etwas Besonderes" : "Einfachste Variante"}</button>`).join("")}</div>` : "";
+    return `${tabs}<div><b style="font-size:18px">${esc(r.title)}</b><div class="note">Runde ${g.round} · ${deA(r.servings)} Portionen${r.prep_minutes ? " · ca. " + r.prep_minutes + " Min." : ""}</div>${r.why ? `<div class="note">${esc(r.why)}</div>` : ""}${r.taste_score ? `<div class="note">Geschmacks-Check der KI: ${r.taste_score}/10${r.taste_check ? " – " + esc(r.taste_check) : ""}</div>` : ""}${r.unused && r.unused.length ? `<div class="note">Nicht verwendet: ${esc(r.unused.map((u) => u.name + (u.reason ? " (" + u.reason + ")" : "")).join(", "))}</div>` : ""}</div>
+      <div class="note"><b>Hake an, was du NICHT hast.</b></div>${grp}
+      <details><summary class="link acc">Zubereitung ansehen</summary><ol class="sgsteps">${r.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol></details>
+      ${r.note ? `<div class="note">${esc(r.note)}</div>` : ""}
+      ${g.error ? `<div class="notice">${esc(g.error)}</div>` : ""}
+      <div class="sgacts"><button class="btn primary" data-act="sgSave" ${n || g.busy ? "disabled" : ""}>Alles da – jetzt kochen</button>
+        <button class="btn" data-act="sgAgain" ${!n || g.busy ? "disabled" : ""}>${g.busy ? "Neuer Vorschlag …" : "Nicht alles da – neu vorschlagen"}</button>
+        <button class="btn ghost" data-act="sgBack">Zutaten ändern</button></div>`;
+  }
+  let sgRec = null;
+  function sgStopMic() { try { sgRec && sgRec.stop(); } catch (e) { /* egal */ } sgRec = null; if (ui.sheet && ui.sheet.sg) ui.sheet.sg.mic = false; }
+  async function sgFetch(g, only) {
+    g.busy = true; g.error = null; renderSheet(true);
+    try {
+      const out = await window.FR_SUGGEST({ text: g.text, have: g.have, missing: g.missing, tried: g.tried, servings: g.servings, only: only || undefined });
+      if (!out || out.error || !(out.recipe || (out.recipes && out.recipes.length))) throw new Error(out && out.error ? out.error : "Kein Vorschlag erhalten.");
+      const rs = Array.isArray(out.recipes) && out.recipes.length ? out.recipes : [out.recipe]; g.mode = out.mode || g.mode;
+      if (only && g.options && g.options[g.pick]) { g.options = g.options.map((o, i) => (i === g.pick ? { ...rs[0], variant: g.options[i].variant } : o)); g.recipe = g.options[g.pick]; } else { g.options = rs; g.pick = 0; g.recipe = rs[0]; }
+      g.stage = "check"; g.ticked = new Set(); g.round += 1;
+    } catch (e) { g.error = (e && e.message) || "Das hat nicht geklappt."; }
+    finally { g.busy = false; if (ui.sheet && ui.sheet.sg === g) renderSheet(true); }
+  }
+  const linkApi = () => !!(window.FR_LINK && window.FR_CONFIG && window.FR_CONFIG.ai === "api");
   function sheetImport() {
     const im = ui.sheet.im;
     const canAI = !!(caps.sampleImages);
     return `<label class="f">Rezept-Link<input id="imp-url" type="url" inputmode="url" placeholder="https://…" value="${esc(im.url || "")}" data-input="impUrl"></label>
       <div class="note">Kategorie wählen (Pflicht):</div>
       <div class="filters">${X.CATS.map(([k]) => `<button class="chip line" data-act="impCat" data-v="${k}" aria-pressed="${im.cat === k}">${CAT_SHORT[k]}</button>`).join("")}</div>
-      <button class="btn primary" data-act="impLink" ${im.cat ? "" : "disabled"}>Link vormerken</button>
-      <div class="note">Die App darf keine Webseiten laden. Der Link wird vorgemerkt – schreib dann im Chat mit Claude „Links importieren“, danach liegt das Rezept hier bereit.</div>
+      ${linkApi() ? `<button class="btn primary" data-act="impLinkLoad" ${im.cat && !im.busy ? "" : "disabled"}>${im.busy ? "Rezept wird von der Seite gelesen …" : "Rezept aus Link laden"}</button>
+      <div class="note">Die Seite wird abgerufen, Zutaten, Schritte und Bild werden übernommen. Du prüfst alles, bevor es gespeichert wird.</div>
+      <button class="btn" data-act="impLink" ${im.cat ? "" : "disabled"}>Nur vormerken (Claude liest es später)</button>` : `<button class="btn primary" data-act="impLink" ${im.cat ? "" : "disabled"}>Link vormerken</button>
+      <div class="note">Die App darf keine Webseiten laden. Der Link wird vorgemerkt – schreib dann im Chat mit Claude „Links importieren“, danach liegt das Rezept hier bereit.</div>`}
       ${linkListHtml()}
-      <div class="eyebrow" style="margin-top:14px">Oder Screenshot</div>
+      ${linkApi() ? (im.error ? `<div class="notice">${esc(im.error)}</div>` : "") : importExtras(im, canAI)}`;
+  }
+
+  /** Screenshot-, Text- und Manuell-Import: nur ohne KI-API sichtbar (mit API gibt es nur Link und Zutaten). */
+  function importExtras(im, canAI) {
+    return `<div class="eyebrow" style="margin-top:14px">Oder Screenshot</div>
       <div class="note">${canAI ? "Claude liest Zutaten, Mengen, Schritte und Nährwerte aus – nur was wirklich im Bild steht." : "In dieser Ansicht kann Claude keine Bilder lesen – nutze den Text darunter."}</div>
       <label class="f">Screenshot<input id="imp-file" type="file" accept="image/*" data-change="impFile"></label>
       ${im.preview ? `<img src="${im.preview}" alt="Gewählter Screenshot" style="max-height:260px;object-fit:contain;border-radius:12px;background:var(--surface-2)">` : ""}
@@ -628,43 +654,39 @@ Regeln:
   function vEinkauf() {
     const ps = store.profiles();
     const s = store.shopping(shopDate(), ui.scope === "alle" || ps.some((p) => p.id === ui.scope) ? ui.scope : "alle");
-    const scopes = [...ps.map((p) => [p.id, p.name]), ["alle", "Beide"]];
+    const scopes = ps.length > 1 ? [...ps.map((p) => [p.id, p.name]), ["alle", "Beide"]] : [];
     const open = s.items.filter((i) => !i.checked && !i.have), done = s.items.filter((i) => i.checked || i.have);
     const showDone = !!ui.showDone;
     const row = (i) => `<label class="${i.checked || i.have ? "done" : ""}"><input type="checkbox" data-change="shopCheck" data-key="${esc(i.key)}" ${i.checked ? "checked" : ""} aria-label="${esc(i.name)} gekauft">
       <span><span class="n">${esc(i.name)}</span>${[i.extra ? "zusätzlich ohne Mengenangabe" : "", i.have ? "schon vorhanden" : "", i.override != null ? "Menge angepasst" : ""].filter(Boolean).map((t) => `<span class="s">${t}</span>`).join("")}</span>
-      <span style="display:flex;gap:6px;align-items:center"><button class="btn sm ghost a" data-act="shopAmount" data-key="${esc(i.key)}">${i.shown == null ? "nach Bedarf" : `${deA(i.shown)} ${esc(i.unit || "")}`}</button>
+      <span class="shop-r"><button class="btn sm ghost a" data-act="shopAmount" data-key="${esc(i.key)}">${i.shown == null ? "nach Bedarf" : `${deA(i.shown)} ${esc(i.unit || "")}`}</button>
         ${i.auto ? "" : `<button class="btn sm ghost" data-act="shopDel" data-id="${esc(i.id)}" aria-label="Entfernen">${ic("trash", 15)}</button>`}</span></label>`;
-    return `<div class="toprow"><span class="note">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</span><button class="btn sm" data-act="shopResetAll">${ic("undo", 16)} Alles zurücksetzen</button></div><div class="filters">${[["tag", "Heute"], ["woche", "Diese Woche"]].map(([k, t]) => `<button class="chip line" data-act="span" data-v="${k}" aria-pressed="${(ui.shopSpan === "woche") === (k === "woche")}">${t}</button>`).join("")}</div><div class="filters">${scopes.map(([k, t]) => `<button class="chip line" data-act="scope" data-v="${k}" aria-pressed="${s.scope === k}">${esc(t)}</button>`).join("")}</div>
+    return `<div class="toprow"><span class="note">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</span><button class="btn sm" data-act="shopResetAll">${ic("redo", 16)} Alles zurücksetzen</button></div><div class="filters">${[["tag", "Heute"], ["woche", "Diese Woche"]].map(([k, t]) => `<button class="chip line" data-act="span" data-v="${k}" aria-pressed="${(ui.shopSpan === "woche") === (k === "woche")}">${t}</button>`).join("")}</div><div class="filters">${scopes.map(([k, t]) => `<button class="chip line" data-act="scope" data-v="${k}" aria-pressed="${s.scope === k}">${esc(t)}</button>`).join("")}</div>
       <section class="card"><div class="row"><div><h2>Einkaufsliste</h2><div class="sub">${s.mealCount} Gericht${s.mealCount === 1 ? "" : "e"} · ${open.length} offen</div></div>${ring(String(done.length), s.items.length ? (done.length / s.items.length) * 100 : 0, "hi", "erledigt")}</div>
-      ${s.meals.length ? `<div class="minilist">${s.meals.map((m) => `<div><span><b>${esc(m.title)}</b>${ps.length > 1 && s.scope === "alle" ? ` <span class="note">(${esc(m.who)})</span>` : ""}<br><span class="note">${s.week ? esc(fmtDate(m.date)) + " · " : ""}${esc(SLOT_LABEL[m.slot] || "")} · Rezept ist für ${deA(m.recipeServings)}</span></span>
-        <span class="chip line" style="gap:2px;padding:2px 4px"><button class="link" style="padding:0 10px" data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button>für ${deA(m.servings)} Pers.<button class="link" style="padding:0 10px" data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></span></div>`).join("")}</div>` : ""}
+      ${s.meals.length ? `<div class="minilist">${s.meals.map((m) => `<div><span><b>${esc(m.title)}</b>${m.pid !== ui.pid && m.who ? ` <span class="note">(${esc(m.who)})</span>` : ""}<br><span class="note">${s.week ? esc(fmtDate(m.date)) + " · " : ""}${esc(SLOT_LABEL[m.slot] || "")} · Rezept ist für ${deA(m.recipeServings)}</span></span>
+        ${m.pid === ui.pid ? `<div class="stepper" role="group" aria-label="Portionen"><button data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="-1" aria-label="weniger Portionen kochen">−</button><span>${deA(m.servings)} Pers.</span><button data-act="svMeal" data-pid="${m.pid}" data-date="${m.date}" data-id="${m.id}" data-d="1" aria-label="mehr Portionen kochen">+</button></div>` : `<div class="stepper ro"><span>${deA(m.servings)} Pers.</span></div>`}</div>`).join("")}</div>` : ""}
       ${s.items.length ? `<div class="shop">${open.map(row).join("")}</div>${!open.length && done.length ? `<div class="note">Alles abgehakt.</div>` : ""}${done.length ? `<button class="link acc" data-act="toggleDone">${showDone ? "Erledigte ausblenden" : `${done.length} erledigt/vorhanden ausgeblendet – anzeigen`}</button>${showDone ? `<div class="shop">${done.map(row).join("")}</div>` : ""}` : ""}`
         : `<div class="empty"><b>Noch nichts geplant</b><span>Wähle unter „Neu“ Gerichte für heute oder plane sie unter „Ausgewählt“ – die Zutaten erscheinen hier automatisch und passen sich an Portionen an.</span><button class="btn primary" data-act="view" data-v="radar">Gerichte in „Neu“ wählen</button></div>`}
             ${open.length ? `<button class="btn" data-act="shopShare">Offene Posten teilen / kopieren (z. B. für Bring!)</button>` : ""}
-      <form class="fgrid three" data-submit="shopAdd"><input id="shop-n" placeholder="Eigener Posten" aria-label="Eigener Posten" required class="full">
-        <input id="shop-a" inputmode="decimal" placeholder="Menge" aria-label="Menge"><input id="shop-u" placeholder="Einheit" aria-label="Einheit"><button class="btn">${ic("plus", 16)} Hinzufügen</button></form>
-      <div class="note">Gleiche Zutaten werden über alle Gerichte addiert, wenn die Einheiten zusammenpassen (g/kg, ml/l/EL/TL). Andere Einheiten bleiben getrennte Posten.</div>${ps.length > 1 ? `<div class="note">Die Liste ist live geteilt: Abhaken und Änderungen der anderen Person erscheinen nach wenigen Sekunden.</div>` : ""}</section>`;
+      </section>`;
   }
 
   // ================================================================== Mehr, Historie, Gewicht
   function vMehr() {
     const curHex = accentHex(), saved = LS.get("accentSaved", []) || [], savedHere = curHex != null && saved.some((c) => String(c.hex).toLowerCase() === curHex);
-    const palette = `<details class="card fold" ${ui.palOpen ? "open" : ""}><summary data-act="palToggle"><h2>Farbe der App</h2><span class="sub">Gilt nur auf diesem Gerät</span></summary>
+    const palette = `<section class="card pal" aria-label="Farbe der App"><h2>Farbe der App</h2><div class="sub">Gilt nur auf diesem Gerät</div>
       <div class="swatches" role="radiogroup" aria-label="Akzentfarbe">${ACCENTS.map(([hex, n]) => `<button class="sw-c" role="radio" aria-checked="${curHex === hex}" aria-label="${n}" title="${n}" data-act="accent" data-hex="${hex}" style="--c:${hex}"></button>`).join("")}</div>
-      ${saved.length ? `<div class="eyebrow">Meine Farben</div><div class="swatches">${saved.map((c) => `<button class="sw-c" role="radio" aria-checked="${curHex === String(c.hex).toLowerCase()}" aria-label="Eigene Farbe" data-act="accent" data-hex="${esc(c.hex)}" style="--c:${esc(c.hex)}"></button>`).join("")}</div>` : ""}
-      <label class="f" style="flex-direction:row;align-items:center;gap:12px">Neue Farbe<input type="color" id="accent-custom" data-change="accentCustom" value="${esc(ui.pendingHex || curHex || "#8fb39b")}" aria-label="Neue Farbe wählen"></label>
-      ${ui.pendingHex ? `<button class="btn sm primary" data-act="accentSave" style="align-self:flex-start">Farbe in „Meine Farben“ speichern</button>` : ""}
-      ${savedHere ? `<button class="btn sm ghost" data-act="accentDel" style="align-self:flex-start">Diese gespeicherte Farbe entfernen</button>` : ""}
-      ${curHex ? `<button class="btn sm ghost" data-act="accentReset" style="align-self:flex-start">Zurück zum Standard</button>` : ""}</details>`;
-    return `<h2>Mehr</h2><div class="eyebrow">Auswertung</div><div class="more">
+      ${saved.length ? `<div class="pal-sub">Meine Farben</div><div class="swatches">${saved.map((c) => `<button class="sw-c" role="radio" aria-checked="${curHex === String(c.hex).toLowerCase()}" aria-label="Eigene Farbe" data-act="accent" data-hex="${esc(c.hex)}" style="--c:${esc(c.hex)}"></button>`).join("")}</div>` : ""}
+      <label class="pal-new"><span>Neue Farbe</span><input type="color" id="accent-custom" data-change="accentCustom" value="${esc(ui.pendingHex || curHex || "#8fb39b")}" aria-label="Neue Farbe wählen"></label>
+      <div class="pal-acts">${ui.pendingHex ? `<button class="btn" data-act="accentSave">Farbe in „Meine Farben“ speichern</button>` : ""}${savedHere ? `<button class="btn ghost" data-act="accentDel">Diese gespeicherte Farbe entfernen</button>` : ""}${curHex ? `<button class="btn ghost" data-act="accentReset">Zurück zum Standard</button>` : ""}</div></section>`;
+    return `<h2>Mehr</h2><div class="eyebrow">Einstellungen</div><div class="more">
+      <button data-act="view" data-v="profil">${ic("user")}<span>Profile und Einstellungen<br><span class="note">Kalorienbedarf, Sportwerte, Lebensmittel, Datensicherung</span></span></button></div>
+      <div class="eyebrow">Auswertung</div><div class="more">
       <button data-act="view" data-v="rueckblick">${ic("radar")}<span>Wochenrückblick<br><span class="note">Die letzten 7 Tage auf einen Blick</span></span></button>
       <button data-act="view" data-v="health">${ic("check")}<span>Apple Health<br><span class="note">Workouts und Waage per Kurzbefehl</span></span></button>
       <button data-act="view" data-v="historie">${ic("cal")}<span>Historie und Statistik<br><span class="note">Kalender, Wochen und Monate</span></span></button>
       <button data-act="view" data-v="gewicht">${ic("scale")}<span>Gewicht<br><span class="note">Verlauf, Trend und Ziel</span></span></button></div>
-      <div class="eyebrow">Einstellungen</div><div class="more">
-      <button data-act="view" data-v="profil">${ic("user")}<span>Profile und Einstellungen<br><span class="note">Kalorienbedarf, Sportwerte, Lebensmittel, Datensicherung</span></span></button></div>
-      <div class="eyebrow">Darstellung</div>${palette}`;
+      <div class="eyebrow">Darstellung</div><div class="more"><button data-act="theme" aria-pressed="${themeIsDark()}"><span>${themeIsDark() ? "☀︎" : "☾"}</span><span>Hell / Dunkel<br><span class="note">Jetzt: ${themeIsDark() ? "dunkel – tippen für hell" : "hell – tippen für dunkel"}</span></span></button></div>${palette}`;
   }
 
   function vHistorie() {
@@ -692,7 +714,7 @@ Regeln:
       <div class="stats">${tiles.map(([v, t]) => `<div class="stat"><b>${v}</b><span>${t}</span></div>`).join("")}</div>
       <section class="card"><h3>Kalorien pro Tag</h3>${histChart(days)}<div class="note">Balken = gegessen, Linie = Budget (Ziel + Sport). Grau = Tag nicht als vollständig markiert.</div></section>
       ${cal}
-      <div class="note">Ein Tag zählt erst, wenn du ihn unter „Ausgewählt“ als vollständig erfasst markierst und alle gegessenen Mahlzeiten einen Kalorienwert haben. Tage ohne Einträge werden weder als Erfolg noch als Misserfolg gewertet.</div>`;
+      <div class="note">Ein vergangener Tag zählt, sobald etwas gegessen wurde und alle gegessenen Mahlzeiten einen Kalorienwert haben. Tage ohne Einträge werden weder als Erfolg noch als Misserfolg gewertet.</div>`;
   }
 
   const HEALTH_URL = () => `${(window.FR_CONFIG && window.FR_CONFIG.url) || "https://DEIN-PROJEKT.supabase.co"}/functions/v1/health-import`;
@@ -705,11 +727,20 @@ Regeln:
       <section class="card"><h2>Apple Health</h2>
         <div class="sub">Der iPhone-Kurzbefehl schickt Gewicht und Workouts an Foody. Die App übernimmt sie beim Öffnen${open ? ` (jetzt ${open} wartend)` : ""}.</div>
         <div class="note">Übernommen wird nur, was einen echten Wert hat: Gewicht zwischen 20 und 300 kg, Workouts nur mit Kalorienwert. Foody schätzt nichts.</div></section>
-      <section class="card"><h3>1. Einmalig: Geheimwort setzen</h3><div class="note">In Supabase unter Edge Functions → Secrets ein Secret <b>HEALTH_KEY</b> mit einem selbst gewählten langen Wort anlegen.</div></section>
-      <section class="card"><h3>2. Kurzbefehl bauen</h3>
-        <div class="note">Kurzbefehle → Automation → Persönlich: „Tageszeit“ (z. B. 21:00) oder „Workout beenden“. Aktionen: „Health-Werte suchen“ (Gewicht bzw. Workouts), danach „Inhalte von URL abrufen“ mit diesen Angaben:</div>
-        ${code("URL (Methode POST)", HEALTH_URL())}${code("Header", "x-health-key: <dein Geheimwort>")}${code("Anfragetext (JSON)", ex)}
-        <div class="note">burnRest = Ruheenergie von heute, burnActive = Aktivitätsenergie von heute (jeweils die Summe in kcal). Foody zeigt daraus die Energiebilanz „verbraucht gegenüber gegessen“. Das Tagesbudget bleibt unverändert. Die Werte werden bei jedem Lauf für heute überschrieben, ein Datum ist optional ("date": "JJJJ-MM-TT"). Zusätzlich geht auch weightKg (Gewicht).</div></section>`;
+      <div class="note" style="text-align:center">Version vom ${esc(window.FR_BUILD || "–")}</div>
+      ${(() => {
+        const end = today(), { days } = store.historyDays(pid, L.addDays(end, -6), end);
+        const rows = days.filter((d) => d.burn && (d.burn.rest != null || d.burn.active != null)).reverse();
+        const at = rows.length && rows[0].burn.at ? new Date(rows[0].burn.at).toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "";
+        const tot = (b) => (b.rest || 0) + (b.active || 0);
+        return `<section class="card"><h3>Verbrauch aus Health</h3>${rows.length ? `<div class="note">Zuletzt aktualisiert: ${esc(at)} Uhr</div>
+          <div class="scroll"><table class="tbl"><thead><tr><th>Tag</th><th class="r">Ruhe</th><th class="r">Aktiv</th><th class="r">Gesamt</th></tr></thead><tbody>${rows.map((d) => `<tr><td>${esc(fmtDate(d.date))}</td><td class="r">${d.burn.rest == null ? "–" : de(d.burn.rest)}</td><td class="r">${d.burn.active == null ? "–" : de(d.burn.active)}</td><td class="r"><b>${de(tot(d.burn))}</b></td></tr>`).join("")}</tbody></table></div><div class="note">Werte in kcal, die der Kurzbefehl zuletzt geschickt hat.</div>`
+          : `<div class="note">Noch keine Werte angekommen. Starte den Kurzbefehl einmal, dann erscheinen sie hier.</div>`}</section>`;
+      })()}
+      <section class="card"><h3>Jetzt aktualisieren</h3>
+        <div class="note">Startet deinen Kurzbefehl von hier. iOS wechselt kurz zu Kurzbefehle und wieder zurück. Name genau wie in der Kurzbefehle-App eintragen.</div>
+        <input id="hk-name" class="inp" placeholder="Name des Kurzbefehls" autocomplete="off" value="${esc(LS.get("hkname", ""))}">
+        <button class="btn" data-act="hkRun">Kurzbefehl starten</button></section>`;
   }
 
   function vRueckblick() {
@@ -802,7 +833,6 @@ Regeln:
   // ================================================================== Profil & Einstellungen
   function vProfil() {
     const p = store.profile(ui.pid), e = store.energyFor(ui.pid, today()), w = store.currentWeight(ui.pid);
-    const rates = store.sportRates(ui.pid);
     const v = (x) => (x == null ? "" : esc(x));
     const formula = e && e.bmr != null
       ? `Grundumsatz (Mifflin-St. Jeor):\n10 × ${de(w, 1)} kg + 6,25 × ${de(p.heightCm)} cm − 5 × ${e.age} J. ${p.sex === "m" ? "+ 5" : "− 161"} = ${de(e.bmr)} kcal\nGesamtbedarf: ${de(e.bmr)} × PAL ${de(p.pal, 2)} = ${de(e.tdee)} kcal\nTagesziel: ${e.goal == null ? "–" : de(e.goal) + " kcal"} (${e.goalSource || "–"})`
@@ -813,28 +843,24 @@ Regeln:
           <div class="stat"><b>${e && e.tdee != null ? de(e.tdee) : "–"}</b><span>Gesamtbedarf kcal</span></div><div class="stat"><b class="pos">${e && e.goal != null ? de(e.goal) : "–"}</b><span>Tagesziel kcal</span></div></div>
         <div class="formula">${esc(formula)}</div>
         ${e && e.warnings.length ? `<div class="notice">${esc(e.warnings.join(" "))}</div>` : ""}
-        <div class="note">Bedarf = Schätzung, was du verbrauchst. Ziel = was du essen willst. Der PAL beschreibt deinen Alltag ohne geplanten Sport (DGE). Sport kommt nur mit echtem Verbrauchswert dazu – so wird Bewegung nicht doppelt gezählt.</div></section>
+        <div class="note">Bedarf = Schätzung, was du verbrauchst. Ziel = was du essen willst. Der PAL beschreibt deinen Alltag (DGE). Sport und Bewegung kommen über Apple Health.</div></section>
       <form class="card" data-submit="profile"><h3>Angaben</h3><div class="fgrid">
         <label class="f full">Name<input id="p-name" value="${v(p.name)}" required></label>
-        <label class="f">Geschlecht (für die Formel)<select id="p-sex"><option value="m" ${p.sex === "m" ? "selected" : ""}>männlich</option><option value="w" ${p.sex === "w" ? "selected" : ""}>weiblich</option></select></label>
+        <label class="f">Geschlecht<select id="p-sex"><option value="m" ${p.sex === "m" ? "selected" : ""}>männlich</option><option value="w" ${p.sex === "w" ? "selected" : ""}>weiblich</option></select></label>
         <label class="f">Geburtsdatum<input id="p-birth" type="date" value="${v(p.birthDate)}"></label>
         <label class="f">Alter (falls kein Datum)<input id="p-age" type="number" inputmode="numeric" min="14" max="100" value="${v(p.ageYears)}"></label>
         <label class="f">Größe (cm)<input id="p-height" type="number" inputmode="numeric" min="120" max="230" value="${v(p.heightCm)}" placeholder="z. B. 180"></label>
         <label class="f">Aktuelles Gewicht (kg)<input id="p-weight" type="number" inputmode="decimal" step="0.1" min="25" max="350" value="${v(w)}" placeholder="z. B. 80"></label>
         <label class="f">Zielgewicht (kg)<input id="p-target" type="number" inputmode="decimal" step="0.1" value="${v(p.targetWeightKg)}"></label>
         <label class="f full">Aktivität im Alltag (ohne Sport)<select id="p-pal">${L.PAL_LEVELS.map(([x, t]) => `<option value="${x}" ${Number(p.pal) === x ? "selected" : ""}>${de(x, 1)} – ${t}</option>`).join("")}</select></label>
-        <label class="f">Ziel<select id="p-mode"><option value="halten" ${p.goalMode === "halten" ? "selected" : ""}>Gewicht halten</option><option value="abnehmen" ${p.goalMode === "abnehmen" ? "selected" : ""}>Abnehmen</option><option value="manuell" ${p.goalMode === "manuell" ? "selected" : ""}>Tagesziel selbst festlegen</option></select></label>
-        <label class="f">Defizit beim Abnehmen (kcal/Tag)<input id="p-deficit" type="number" inputmode="numeric" min="0" max="1500" step="50" value="${v(p.deficitKcal)}"></label>
+        <label class="f full">Ziel<select id="p-mode"><option value="halten" ${p.goalMode === "halten" ? "selected" : ""}>Gewicht halten</option><option value="abnehmen" ${p.goalMode === "abnehmen" ? "selected" : ""}>Abnehmen</option><option value="manuell" ${p.goalMode === "manuell" ? "selected" : ""}>Tagesziel selbst festlegen</option></select></label>
+        <label class="f">Defizit (kcal/Tag)<input id="p-deficit" type="number" inputmode="numeric" min="0" max="1500" step="50" value="${v(p.deficitKcal)}"></label>
         <label class="f">Eigenes Tagesziel (kcal)<input id="p-manual" type="number" inputmode="numeric" min="800" max="6000" value="${v(p.goalKcalManual)}"></label>
-        <label class="f">Sport anrechnen<select id="p-sport">${[[100, "100 % der Verbrauchswerte"], [50, "50 % (vorsichtig)"], [0, "gar nicht, nur dokumentieren"]].map(([x, t]) => `<option value="${x}" ${Number(p.sportCreditPct) === x ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <input type="hidden" id="p-sport" value="${Number.isFinite(Number(p.sportCreditPct)) ? Number(p.sportCreditPct) : 100}">
         <label class="f full">Mag ich (Merkmale, Komma)<input id="p-likes" value="${v(p.likes)}" placeholder="proteinreich, vegetarisch"></label>
         <label class="f full">Mag ich nicht (Zutaten, Komma)<input id="p-dislikes" value="${v(p.dislikes)}" placeholder="Pilze, Koriander"></label></div>
         <div class="note">Rund 500 kcal Defizit pro Tag entsprechen grob 0,5 kg pro Woche (Faustregel 7.700 kcal je kg Fett). Änderungen gelten ab heute; vergangene Tage behalten ihr damaliges Ziel.</div>
         <button class="btn primary">Profil speichern</button></form>
-      <section class="card"><h3>Sport: eigene Verbrauchswerte</h3><div class="note">Trage hier deine Durchschnittswerte ein (kcal pro Stunde, z. B. von deiner Uhr). Aktivitäten ohne Wert werden nicht angerechnet; bereits erfasste Einheiten ohne Wert bekommen den neuen Durchschnitt.</div>
-        <form data-submit="rates" class="fgrid">${store.sportKinds().map((k) => `<label class="f">${esc(k.name)} (kcal/h)<input id="rate-${k.id}" data-kind="${k.id}" type="number" inputmode="numeric" min="0" max="2000" value="${rates[k.id] ? rates[k.id].kcalPerHour : ""}" placeholder="kein Wert"></label>`).join("")}
-          <button class="btn full">Werte speichern</button></form>
-        <form data-submit="kind" class="search"><input id="kind-name" placeholder="Weitere Sportart" required aria-label="Weitere Sportart"><button class="btn">Hinzufügen</button></form></section>
       <section class="card"><div class="row" style="align-items:center"><h3>Lebensmittel (je 100 g)</h3><button class="btn sm" data-act="foodEdit" data-id="">${ic("plus", 16)} Neu</button></div>
         <div class="note">Grundlage für „aus Zutaten berechnet“. Startwerte aus USDA FoodData Central (SR Legacy) – prüfe und korrigiere sie bei Bedarf.</div>
         <div class="scroll"><table class="tbl"><thead><tr><th>Name</th><th class="r">kcal</th><th class="r">P</th><th class="r">KH</th><th class="r">F</th></tr></thead><tbody>
@@ -865,8 +891,8 @@ Regeln:
     const s = ui.sheet;
     if (!s) { root.innerHTML = ""; document.documentElement.style.overflow = ""; return; }
     if (!force && !LIVE_SHEETS.has(s.type)) return;
-    const titles = { recipe: "", editor: s.ed && s.ed.id ? "Rezept bearbeiten" : "Neues Rezept", import: "Rezept importieren", addMeal: `Eintrag: ${SLOT_LABEL[s.slot] || ""}`, plan: "Einplanen", sport: "Aktivität eintragen", mealMenu: "Mahlzeit", pickSlot: "Wann kochst du das?", weekPick: `Gericht für ${fmtDate(s.date || ui.date)}`, shopAmount: "Menge anpassen", weight: "Messung bearbeiten", food: "Lebensmittel" };
-    const body = { recipe: () => sheetRecipe(s.id), editor: sheetEditor, import: sheetImport, addMeal: sheetAddMeal, plan: sheetPlan, sport: sheetSport, mealMenu: sheetMealMenu, pickSlot: sheetPickSlot, weekPick: sheetWeekPick, shopAmount: sheetShopAmount, weight: sheetWeight, food: () => sheetFood(s.id) }[s.type];
+    const titles = { recipe: "", editor: s.ed && s.ed.id ? "Rezept bearbeiten" : "Neues Rezept", import: "Rezept importieren", addMeal: `Eintrag: ${SLOT_LABEL[s.slot] || ""}`, plan: "Einplanen", sport: "Aktivität eintragen", mealMenu: "Mahlzeit", pickSlot: "Wann kochst du das?", weekPick: `Gericht für ${fmtDate(s.date || ui.date)}`, suggest: "Aus Zutaten kochen", shopAmount: "Menge anpassen", weight: "Messung bearbeiten", food: "Lebensmittel" };
+    const body = { recipe: () => sheetRecipe(s.id), editor: sheetEditor, import: sheetImport, addMeal: sheetAddMeal, plan: sheetPlan, sport: sheetSport, mealMenu: sheetMealMenu, pickSlot: sheetPickSlot, weekPick: sheetWeekPick, suggest: sheetSuggest, shopAmount: sheetShopAmount, weight: sheetWeight, food: () => sheetFood(s.id) }[s.type];
     const scrollTop = root.querySelector(".sheet") ? root.querySelector(".sheet").scrollTop : 0;
     root.innerHTML = `<div class="sheet-bg" data-act="bgClose"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(titles[s.type] || "Details")}">
       <div class="grip"></div><div class="shead"><h3>${esc(titles[s.type] || "")}</h3><button class="iconbtn" data-act="closeSheet" aria-label="Schließen">${ic("x", 18)}</button></div>${body()}</div></div>`;
@@ -878,6 +904,280 @@ Regeln:
   /** Text für Schritte: nur das Wichtigste fett – Temperaturen und Zeiten (Mengen und Zutaten bleiben normal). */
   const EMPH = /(\d+(?:[.,]\d+)?(?:\s?[–-]\s?\d+(?:[.,]\d+)?)?\s?(?:°\s?C|Minuten|Minute|Min\.?|Stunden|Stunde|Std\.?|Sekunden|Sek\.?)(?![A-Za-zäöüß]))/g;
   const emph = (t) => esc(t).replace(EMPH, "<b>$1</b>");
+
+  // ---- Eintrag nach links wegwischen = entfernen (nur nicht gegessene Mahlzeiten)
+  (function () {
+    let g = null;
+    document.addEventListener("pointerdown", (e) => {
+      const el = e.target.closest && e.target.closest(".meal[data-mid]");
+      if (!el || e.target.closest("button, a, input, select, textarea") || (e.pointerType === "mouse" && e.button !== 0)) { g = null; return; }
+      g = { el, id: el.dataset.mid, x: e.clientX, y: e.clientY, dx: 0, on: false, pid: e.pointerId };
+    });
+    document.addEventListener("pointermove", (e) => {
+      if (!g || e.pointerId !== g.pid) return;
+      const dx = e.clientX - g.x, dy = e.clientY - g.y;
+      if (!g.on && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5) { g.on = true; try { g.el.setPointerCapture(e.pointerId); } catch (x) { /* egal */ } }
+      if (!g.on) return;
+      g.dx = Math.min(0, dx); g.el.style.transition = "none"; g.el.style.transform = `translateX(${g.dx}px)`; g.el.classList.toggle("swipe-del", g.dx < -90);
+    });
+    const end = async (e) => {
+      if (!g || e.pointerId !== g.pid) return; const t = g; g = null; if (!t.on) return;
+      t.el.style.transition = "transform .18s ease, opacity .18s ease";
+      if (t.dx < -90) { t.el.style.transform = "translateX(-110%)"; t.el.style.opacity = "0"; await new Promise((r) => setTimeout(r, 180)); await run("meal:" + t.id, async () => { await store.deleteMeal(ui.pid, ui.date, t.id); }); }
+      else { t.el.style.transform = ""; t.el.classList.remove("swipe-del"); }
+    };
+    document.addEventListener("pointerup", end); document.addEventListener("pointercancel", end);
+  })();
+
+  // ================================================================== Kochmodus: Sprache und Gespräch
+  const getSR = () => window.SpeechRecognition || window.webkitSpeechRecognition;
+  const aiChat = () => !!(window.FR_CHAT && window.FR_CONFIG && window.FR_CONFIG.ai === "api");
+  let recog = null, tick = null, chain = Promise.resolve(), epoch = 0;
+  function cookData() {
+    const c = ui.cook, r = store.recipe(c.id, ui.pid), fac = c.sv / (r.servings || 1);
+    const steps = r.instructions.split("\n").filter((x) => x.trim()).map((x) => x.replace(/\*\*/g, ""));
+    const ings = r.nut.rows.map((x) => { const a = L.scaleAmount(x.amount, x.unit, fac); return { name: x.name, q: (a.amount == null ? "" : deA(a.amount) + " " + (a.unit || "")).trim() }; });
+    return { r, steps, ings };
+  }
+
+  // Sprachausgabe: Sätze laufen nacheinander, speakIdle() wartet bis alles gesprochen ist
+  const deVoice = () => { try { const v = speechSynthesis.getVoices(); return v.find((x) => /^de[-_]DE/i.test(x.lang) && x.localService) || v.find((x) => /^de/i.test(x.lang)) || null; } catch (e) { return null; } };
+  function speakOnce(text) {
+    return new Promise((res) => {
+      let done = false; const fin = () => { if (!done) { done = true; res(); } };
+      try {
+        const u = new SpeechSynthesisUtterance(String(text).replace(/\*\*/g, "")); u.lang = "de-DE"; const v = deVoice(); if (v) u.voice = v;
+        u.onend = fin; u.onerror = fin; speechSynthesis.speak(u);
+        setTimeout(fin, 3000 + String(text).length * 110);
+      } catch (e) { fin(); }
+    });
+  }
+  function say(text) {
+    const c = ui.cook; if (!c || c.live || !text || !window.speechSynthesis || !(c.speak !== false || c.convo)) return chain;
+    const my = epoch; c.status = "speak";
+    if (c.convo && recog) { stopListen(); c.listening = false; }
+    chain = chain.then(() => (my === epoch ? speakOnce(text) : null));
+    chain.then(() => { if (my === epoch && ui.cook && ui.cook.convo && !ui.cook.handling) convoListen(); });
+    return chain;
+  }
+  const speakIdle = async () => { let p; do { p = chain; await p; } while (p !== chain); };
+  function silence() { epoch++; chain = Promise.resolve(); try { speechSynthesis.cancel(); } catch (e) { /* egal */ } }
+  function stopListen() { const rc = recog; recog = null; if (rc) { rc.onend = null; rc.onresult = null; rc.onerror = null; try { rc.abort(); } catch (e) { /* egal */ } } }
+  function cookReply(text) { const c = ui.cook; if (!c) return; c.reply = text; c.log = (c.log || []).concat({ role: "assistant", content: text }).slice(-8); c.busy = false; renderCook(); say(text); }
+  function cookGo(step, quiet) {
+    const c = ui.cook; if (!c) return; const { steps } = cookData();
+    c.tab = "steps"; c.step = Math.max(0, Math.min(steps.length - 1, step)); if (!c.live) c.reply = ""; renderCook(); if (quiet || c.live) return; say(`Schritt ${c.step + 1}. ${steps[c.step]}`);
+  }
+  function timerTick() {
+    const c = ui.cook, el = document.getElementById("cook-timer");
+    if (!c || !c.timer) { clearInterval(tick); tick = null; return; }
+    const left = Math.max(0, Math.round((c.timer.end - Date.now()) / 1000));
+    if (el) el.textContent = "⏱ " + Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+    if (left <= 0) { c.timer = null; clearInterval(tick); tick = null; try { navigator.vibrate && navigator.vibrate([300, 150, 300]); } catch (e) { /* egal */ } if (c.live) liveNote("commentary", "Der Timer ist abgelaufen. Sag dem Nutzer kurz Bescheid."); else cookReply("Der Timer ist abgelaufen."); }
+  }
+  function cookTimer(sec) {
+    const c = ui.cook; if (!c || !(sec > 0)) return; c.timer = { end: Date.now() + sec * 1000 };
+    clearInterval(tick); tick = setInterval(timerTick, 1000); renderCook(); timerTick();
+  }
+  async function cookHandle(raw) {
+    const c = ui.cook, q = String(raw || "").trim(); if (!c || !q) return;
+    const t = q.toLowerCase().replace(/[.,!?]/g, " ").replace(/\s+/g, " ").trim();
+    const { r, steps, ings } = cookData(), n = steps.length, i = c.step;
+    c.log = (c.log || []).concat({ role: "user", content: q }).slice(-8);
+    if (WAKE_END(t) || /^(gespräch beenden|beende das gespräch|gespräch stoppen|tschüss|auf wiedersehen|ende|fertig)$/.test(t)) { c.convo = false; stopListen(); hfResume(1200); return cookReply("Gespräch beendet. Guten Appetit!"); }
+    let m;
+    if ((m = t.match(/(\d+)\s*(stunde|stunden|minute|minuten|min|sekunde|sekunden|sek)/)) && /timer|wecker|erinner|stopp/.test(t)) {
+      const k = Number(m[1]), u = m[2]; const sec = /^st/.test(u) ? k * 3600 : /^se/.test(u) ? k : k * 60;
+      cookTimer(sec); return cookReply(`Timer läuft: ${k} ${u}.`);
+    }
+    if (/^(timer )?(abbrechen|stop|stopp|aus)\b.*timer|timer (abbrechen|stoppen|aus)/.test(t)) { c.timer = null; return cookReply("Timer gestoppt."); }
+    if (/^(weiter|nächster schritt|nächsten schritt|vor)\b/.test(t)) return cookGo(i + 1);
+    if (/^(zurück|vorheriger schritt|vorherigen schritt|davor)\b/.test(t)) return cookGo(i - 1);
+    if (/wiederhol|nochmal|noch mal|nochmals|vorlesen/.test(t)) return cookReply(steps[i]);
+    if (/wo (bin|sind) (ich|wir)|welcher schritt|welchen schritt/.test(t)) return cookReply(`Schritt ${i + 1} von ${n}. ${steps[i]}`);
+    if (/(kommt|geht|ist).*(als nächstes|danach|dann|nächste)|nächster schritt|was danach/.test(t)) return cookReply(i + 1 < n ? `Danach: ${steps[i + 1]}` : "Das war schon der letzte Schritt.");
+    if (/^zutaten|zeig.*zutaten/.test(t)) { c.tab = "zutaten"; return cookReply("Hier sind die Zutaten."); }
+    if (/^schritte|zeig.*schritte/.test(t)) { c.tab = "steps"; return cookReply("Zurück zu den Schritten."); }
+    if (/^(wie viel|wieviel|wie viele|wieviele)\b/.test(t)) {
+      const hit = ings.find((x) => String(x.name).toLowerCase().split(/[\s,(]+/).some((w) => w.length >= 4 && t.includes(w.slice(0, Math.max(4, w.length - 2)))));
+      if (hit) return cookReply(`${hit.q ? hit.q + " " : ""}${hit.name}.`.trim());
+    }
+    if (!aiChat()) return cookReply("Freie Fragen gehen erst mit dem KI-Zugang. Probier: weiter, zurück, wiederholen, wo bin ich, was kommt danach, wie viel Zutat, Timer 10 Minuten.");
+    c.busy = true; c.reply = ""; renderCook();
+    try {
+      const o = await window.FR_CHAT({ recipe: { title: r.title, servings: c.sv, steps, ingredients: ings.map((x) => (x.q + " " + x.name).trim()) }, step: i, history: c.log.slice(0, -1), question: q });
+      if (!ui.cook) return;
+      if (o.timer_min > 0) cookTimer(o.timer_min * 60);
+      if (o.action === "next") cookGo(i + 1); else if (o.action === "prev") cookGo(i - 1); else if (o.action === "goto" && o.step) cookGo(o.step - 1);
+      cookReply(o.answer || "Das habe ich nicht verstanden.");
+    } catch (err) { if (ui.cook) cookReply("Das hat gerade nicht geklappt: " + (err && err.message ? err.message : "Fehler")); }
+  }
+
+  // ---- Gespräch mit GPT-Live (OpenAI, WebRTC): natürliche Stimme, hört durchgehend zu, Apple-Sprache bleibt als Rückfall
+  const liveOn = () => !!(window.FR_LIVE && window.FR_CONFIG && window.FR_CONFIG.ai === "api" && window.RTCPeerConnection && navigator.mediaDevices);
+  let live = null, liveN = 0, livePaint = 0;
+  const liveSend = (o, delegation) => { const L = live; if (!L || !L.dc || L.dc.readyState !== "open") return; try { L.dc.send(JSON.stringify({ event_id: "f" + ++liveN, ...o, ...(delegation ? { delegation_id: delegation } : {}) })); } catch (e) { /* egal */ } };
+  const liveNote = (kind, text) => liveSend({ type: "session." + kind + ".append", delegation_id: null, content: String(text).slice(0, 1500) });
+  const liveRender = () => { if (livePaint) return; livePaint = requestAnimationFrame(() => { livePaint = 0; if (ui.cook) renderCook(); }); };
+  function liveContext() { const { r, steps, ings } = cookData(), c = ui.cook; return { title: r.title, servings: c.sv, step: c.step, steps, ingredients: ings.map((x) => (x.q + " " + x.name).trim()) }; }
+  function liveCleanup() {
+    const L = live; live = null; if (!L) return;
+    (L.timers || []).forEach((t) => { clearInterval(t); clearTimeout(t); });
+    try { L.stream && L.stream.getTracks().forEach((t) => t.stop()); } catch (e) { /* egal */ }
+    try { L.dc && L.dc.close(); } catch (e) { /* egal */ }
+    try { L.pc && L.pc.close(); } catch (e) { /* egal */ }
+    try { L.audio && (L.audio.srcObject = null, L.audio.remove()); } catch (e) { /* egal */ }
+  }
+  function liveStop(msg) {
+    const L = live, c = ui.cook; if (!L) return; L.closing = true;
+    liveSend({ type: "session.close" });
+    setTimeout(liveCleanup, 500);
+    if (c) { c.convo = false; c.live = false; c.status = ""; c.listening = false; c.reply = msg || ""; renderCook(); hfResume(1000); }
+  }
+  function liveFail(err) {
+    const c = ui.cook, msg = err && err.message ? err.message : "Verbindung nicht möglich.";
+    liveCleanup(); if (!c) return;
+    c.live = false; c.convo = false; c.status = "";
+    if (/Permission|NotAllowed|denied|erlaubt/i.test(String(err && (err.name + " " + err.message)))) { c.reply = "Mikrofon nicht erlaubt. Erlaube es in den iPhone-Einstellungen für Safari, dann starte das Gespräch neu."; renderCook(); return; }
+    console.error("GPT-Live:", err);
+    c.reply = "Die GPT-Stimme ist gerade nicht erreichbar (" + msg + "). Ich nehme die Stimme des iPhones."; renderCook();
+    setTimeout(() => { if (ui.cook && !ui.cook.convo) appleStart(); }, 400);
+  }
+  async function liveStart() {
+    const c = ui.cook; if (!c) return;
+    c.convo = true; c.live = true; c.status = "connect"; c.reply = ""; c.heard = ""; c.tab = "steps"; renderCook();
+    const L = live = { pc: null, dc: null, audio: null, stream: null, started: false, closing: false, last: Date.now(), t0: Date.now(), seen: new Set(), timers: [], side: "" };
+    try {
+      const pc = new RTCPeerConnection(); L.pc = pc;
+      const audio = document.createElement("audio"); audio.autoplay = true; audio.setAttribute("playsinline", ""); audio.style.display = "none"; document.body.appendChild(audio); L.audio = audio;
+      pc.addEventListener("track", (e) => { audio.srcObject = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]); audio.play().catch(() => {}); });
+      L.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      for (const t of L.stream.getAudioTracks()) pc.addTrack(t, L.stream);
+      const dc = pc.createDataChannel("oai-events"); L.dc = dc;
+      dc.onmessage = (e) => { try { liveEvent(JSON.parse(e.data)); } catch (x) { /* egal */ } };
+      dc.onclose = () => { if (live === L && !L.closing) liveStop("Verbindung beendet."); };
+      pc.onconnectionstatechange = () => { if (live === L && !L.closing && (pc.connectionState === "failed" || pc.connectionState === "closed")) liveStop("Verbindung getrennt."); };
+      await pc.setLocalDescription(await pc.createOffer());
+      await new Promise((res) => { if (pc.iceGatheringState === "complete") return res(); pc.addEventListener("icegatheringstatechange", () => pc.iceGatheringState === "complete" && res()); setTimeout(res, 2500); });
+      const ans = await window.FR_LIVE({ sdp: pc.localDescription.sdp, context: liveContext() });
+      if (!ans || !ans.sdp) throw new Error(ans && ans.error ? ans.error : "keine Antwort");
+      if (live !== L) return;
+      await pc.setRemoteDescription({ type: "answer", sdp: ans.sdp });
+      L.timers.push(setInterval(() => {
+        if (live !== L) return;
+        if (Date.now() - L.last > 240000) liveStop("Ich habe 4 Minuten nichts gehört. Gespräch beendet.");
+        else if (Date.now() - L.t0 > 45 * 60000) liveStop("Gespräch nach 45 Minuten beendet.");
+      }, 15000));
+      L.timers.push(setTimeout(() => { if (live === L && !L.started) { liveFail(new Error("Zeitüberschreitung")); } }, 15000));
+    } catch (err) { if (live === L || !live) liveFail(err); }
+  }
+  function liveToolRun(name, a) {
+    const c = ui.cook; if (!c) return { error: "kein Kochmodus" };
+    const { steps } = cookData(), at = (k) => ({ step: k + 1, of: steps.length, text: steps[k] });
+    if (name === "next_step" || name === "previous_step" || name === "go_to_step") {
+      const to = name === "next_step" ? c.step + 1 : name === "previous_step" ? c.step - 1 : (Number(a && a.step) || 1) - 1;
+      if (to < 0) return { ...at(c.step), hinweis: "Das ist schon der erste Schritt." };
+      if (to >= steps.length) return { ...at(c.step), hinweis: "Das war schon der letzte Schritt." };
+      cookGo(to, true); return at(to);
+    }
+    if (name === "start_timer") { const m = Number(a && a.minutes); if (!(m > 0 && m <= 180)) return { error: "Minuten ungültig" }; cookTimer(Math.round(m * 60)); return { ok: true, minuten: m }; }
+    if (name === "stop_timer") { c.timer = null; clearInterval(tick); tick = null; renderCook(); return { ok: true }; }
+    if (name === "end_conversation") { setTimeout(() => liveStop("Gespräch beendet. Guten Appetit!"), 2500); return { ok: true }; }
+    return { error: "unbekanntes Werkzeug" };
+  }
+  function liveEvent(m) {
+    const c = ui.cook, L = live; if (!c || !L || !m) return;
+    const t = m.type;
+    if (t === "session.started") { L.started = true; c.status = "listen"; liveRender(); return; }
+    if (t === "session.input_transcript.delta" || t === "session.output_transcript.delta") {
+      const side = t === "session.input_transcript.delta" ? "in" : "out"; L.last = Date.now();
+      if (L.side !== side) { L.side = side; if (side === "in") c.heard = ""; else c.reply = ""; }
+      if (side === "in") { c.heard += m.delta || ""; c.status = "listen"; if (WAKE_END(c.heard.toLowerCase().replace(/[.,!?]/g, " "))) { liveStop("Gespräch beendet. Guten Appetit!"); return; } } else { c.reply += m.delta || ""; c.status = "speak"; }
+      liveRender(); return;
+    }
+    if (t === "session.closed") { if (live === L) liveStop(); return; }
+    if (t === "error") { if (!L.started) liveFail(new Error(m.error && m.error.message ? m.error.message : "Fehler")); else console.error("GPT-Live error", m.error); return; }
+    const ev = t === "response.event" ? m.event : m;
+    if (ev && ev.type === "response.output_item.done" && ev.item && ev.item.type === "function_call") {
+      const id = ev.item.call_id || ev.item.id; if (L.seen.has(id)) return; L.seen.add(id);
+      let args = {}; try { args = JSON.parse(ev.item.arguments || "{}"); } catch (x) { /* leer */ }
+      const out = liveToolRun(ev.item.name, args), del = m.delegation_id || ev.delegation_id || null;
+      liveSend({ type: "response.item.create", item: { type: "function_call_output", call_id: ev.item.call_id, output: JSON.stringify(out) } }, del);
+      liveSend({ type: "response.create" }, del);
+    }
+  }
+
+  /** Eine Runde im Gespräch: auswerten, antworten, ausreden lassen, wieder zuhören. */
+  async function cookHear(raw) {
+    const c = ui.cook; if (!c) return;
+    c.handling = true;
+    try { await cookHandle(raw); await speakIdle(); } finally { if (ui.cook) ui.cook.handling = false; }
+    if (ui.cook && ui.cook.convo) convoListen();
+  }
+  function convoStop(msg) {
+    const c = ui.cook; if (!c) return;
+    c.convo = false; c.listening = false; c.status = ""; stopListen(); if (msg) cookReply(msg); else renderCook(); hfResume(900);
+  }
+  function convoListen() {
+    const c = ui.cook; if (!c || !c.convo) return;
+    const SR = getSR();
+    if (!SR) { convoStop("Spracherkennung gibt es auf diesem Gerät nicht. Tipp stattdessen unten."); return; }
+    if (recog) return;
+    const rc = new SR(); rc.lang = "de-DE"; rc.interimResults = true; rc.maxAlternatives = 1; recog = rc;
+    let got = false;
+    rc.onresult = (ev) => {
+      const r = ev.results && ev.results[ev.results.length - 1]; if (!r) return;
+      c.heard = r[0] ? r[0].transcript : ""; if (!r.isFinal) { renderCook(); return; }
+      got = true; c.empty = 0; c.listening = false; recog = null; try { rc.onend = null; rc.stop(); } catch (e) { /* egal */ }
+      cookHear(c.heard);
+    };
+    rc.onerror = (ev) => {
+      const er = ev && ev.error;
+      if (er === "not-allowed" || er === "service-not-allowed") convoStop("Mikrofon oder Spracherkennung ist nicht erlaubt. Erlaube beides in den iPhone-Einstellungen, dann starte das Gespräch neu.");
+    };
+    rc.onend = () => {
+      if (recog === rc) recog = null;
+      if (!ui.cook || !ui.cook.convo || got || ui.cook.handling) return;
+      c.listening = false; c.empty = (c.empty || 0) + 1;
+      if (c.empty >= 8) { convoStop("Ich habe länger nichts gehört. Gespräch beendet."); return; }
+      setTimeout(convoListen, 350);
+    };
+    c.listening = true; c.status = "listen"; c.reply = ""; renderCook();
+    try { rc.start(); } catch (e) { recog = null; c.listening = false; setTimeout(convoListen, 600); }
+  }
+  function appleStart() {
+    const c = ui.cook; if (!c) return;
+    const SR = getSR();
+    if (!SR) { toast("Spracherkennung gibt es hier nicht. Tipp stattdessen unten und nutze das Mikrofon der Tastatur."); return; }
+    c.convo = true; c.empty = 0; c.heard = ""; c.reply = ""; c.tab = "steps"; renderCook();
+    const { steps } = cookData();
+    say(`Gespräch gestartet. Wir sind bei Schritt ${c.step + 1} von ${steps.length}. ${steps[c.step]} Sag zum Beispiel: weiter, wiederholen oder stell mir eine Frage.`);
+    speakIdle().then(() => { if (ui.cook && ui.cook.convo) convoListen(); });
+  }
+  /** Auf Zuruf: Im Leerlauf hört nur die Apple-Spracherkennung (ohne API-Kosten) auf „Foodie, starte das Gespräch“. Erst dann beginnt das (kostenpflichtige) GPT-Gespräch. */
+  const WAKE_START = (t) => /gespr[äa]ch/.test(t) && /(start|beginn|anfang|los)/.test(t) && !/(beend|stopp|ende)/.test(t);
+  const WAKE_END = (t) => (/gespr[äa]ch/.test(t) && /(beend|stopp|ende\b|aufh[öo]r)/.test(t)) || /^(foodie|foody|fudi)[ ,]+(ende|stopp|tsch[üu]ss)/.test(t);
+  let hfRec = null, hfTimer = 0;
+  function hfStop() { clearTimeout(hfTimer); const r = hfRec; hfRec = null; if (r) { r.onend = null; r.onresult = null; r.onerror = null; try { r.abort(); } catch (e) { /* egal */ } } }
+  function hfListen() {
+    hfStop();
+    const c = ui.cook, SR = getSR(); if (!c || !c.hf || c.convo || !SR) return;
+    const rc = new SR(); rc.lang = "de-DE"; rc.continuous = true; rc.interimResults = true; hfRec = rc;
+    rc.onresult = (ev) => {
+      const txt = Array.from(ev.results || []).slice(ev.resultIndex || 0).map((r) => (r[0] ? r[0].transcript : "")).join(" ").toLowerCase().replace(/[.,!?]/g, " ");
+      if (WAKE_START(txt) && ui.cook && !ui.cook.convo) { hfStop(); convoToggle(); }
+    };
+    rc.onerror = (ev) => { const er = ev && ev.error; if (er === "not-allowed" || er === "service-not-allowed") { hfStop(); if (ui.cook) { ui.cook.hf = false; ui.cook.reply = "Auf Zuruf braucht Mikrofon und Spracherkennung. Erlaube beides in den iPhone-Einstellungen."; renderCook(); } } };
+    rc.onend = () => { if (hfRec === rc) { hfRec = null; hfTimer = setTimeout(hfListen, 500); } };
+    try { rc.start(); } catch (e) { hfRec = null; hfTimer = setTimeout(hfListen, 1200); }
+  }
+  const hfResume = (ms) => { clearTimeout(hfTimer); hfTimer = setTimeout(() => { if (ui.cook && ui.cook.hf && !ui.cook.convo) hfListen(); }, ms || 800); };
+  function convoToggle() {
+    const c = ui.cook; if (!c) return;
+    if (c.convo) { if (live) liveStop("Gespräch beendet."); else { silence(); convoStop("Gespräch beendet."); } return; }
+    hfStop();
+    if (liveOn()) liveStart(); else appleStart();
+  }
 
   // ================================================================== Kochmodus
   let wake = null;
@@ -892,7 +1192,7 @@ Regeln:
     renderCook();
   }
   function wakeOff() { try { if (wake) wake.release(); } catch (e) { /* egal */ } wake = null; }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && ui.cook) wakeOn(); }); // iOS gibt die Sperre beim Wegwischen frei
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && ui.cook) { wakeOn(); if (ui.cook.convo && !recog && !ui.cook.handling) setTimeout(convoListen, 500); } }); // iOS gibt die Sperre beim Wegwischen frei
 
   function renderCook() {
     const root = $("#cook"), c = ui.cook;
@@ -913,10 +1213,15 @@ Regeln:
       ${c.tab === "zutaten" ? `<div class="cook-body"><ul class="cook-ing">${ing}</ul></div>`
         : n ? `<div class="cook-prog"><b>Schritt ${i + 1} von ${n}</b><div class="bar"><i style="width:${((i + 1) / n) * 100}%"></i></div></div>
           <div class="cook-body"><p class="cook-step">${emph(steps[i])}</p>${i + 1 < n ? `<p class="cook-next"><span class="note">Danach:</span> ${emph(steps[i + 1])}</p>` : ""}</div>
-          <div class="cook-nav"><button class="btn" data-act="cookNav" data-d="-1" ${i === 0 ? "disabled" : ""}>‹ Zurück</button>${i + 1 < n ? `<button class="btn primary" data-act="cookNav" data-d="1">Weiter ›</button>` : `<button class="btn primary" data-act="cookEnd">Fertig ✓</button>`}</div>`
+${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "live" : ""}" role="status"><b>${c.status === "connect" ? "Verbinde …" : c.busy ? "Ich denke nach …" : c.status === "listen" || c.listening ? "Ich höre zu …" : c.status === "speak" ? "Ich spreche …" : "Gleich bin ich dran …"}</b>${c.heard ? `<div class="note">Du: ${esc(c.heard)}</div>` : ""}${c.reply ? `<div>${esc(c.reply)}</div>` : ""}</div>` : c.reply || c.busy ? `<div class="cook-reply" role="status">${c.busy ? "Ich denke nach …" : esc(c.reply)}</div>` : ""}
+          <div class="cook-voice"><button class="btn ${c.convo ? "primary" : ""}" data-act="cookMic" aria-pressed="${!!c.convo}">${c.convo ? "■ Gespräch beenden" : "🎙 Gespräch starten"}</button>${getSR() ? `<button class="btn ${c.hf ? "primary" : ""}" data-act="cookHf" aria-pressed="${!!c.hf}">👂 Auf Zuruf: ${c.hf ? "an" : "aus"}</button>` : ""}${c.timer ? `<button class="btn" data-act="cookTimerStop" aria-label="Timer stoppen"><span id="cook-timer">⏱</span> ✕</button>` : ""}</div>
+          ${c.hf && !c.convo ? `<div class="note">Im Leerlauf höre ich nur auf „Foodie, starte das Gespräch“ (Apple-Spracherkennung, keine API-Kosten). „Gespräch beenden“ schaltet wieder in den Leerlauf.</div>` : ""}
+          <form class="cook-ask" data-submit="cookAsk"><input id="cook-q" autocomplete="off" enterkeyhint="send" placeholder="${aiChat() ? "Frage tippen oder diktieren …" : "Befehl tippen, z. B. wo bin ich"}"><button class="btn">Senden</button></form>
+                    <div class="cook-nav"><button class="btn" data-act="cookNav" data-d="-1" ${i === 0 ? "disabled" : ""}>‹ Zurück</button>${i + 1 < n ? `<button class="btn primary" data-act="cookNav" data-d="1">Weiter ›</button>` : `<button class="btn primary" data-act="cookEnd">Fertig ✓</button>`}</div>`
           : `<div class="cook-body"><div class="note">Zu diesem Rezept sind keine Schritte hinterlegt.</div></div>`}
     </div>`;
     document.documentElement.style.overflow = "hidden";
+    if (c.timer) timerTick();
   }
 
   function sheetPickSlot() {
@@ -925,19 +1230,27 @@ Regeln:
       <div class="minilist">${X.SLOTS.filter(([k]) => k !== "fruehstueck").map(([k, t]) => `<div><span><b>${esc(t)}</b></span><button class="btn primary" data-act="pickSlot" data-slot="${k}">Auswählen</button></div>`).join("")}</div>`;
   }
 
-  function sheetAddMeal() {
-    const s = ui.sheet;
-    const q = L.norm(s.q || "");
-    const rs = store.recipes(ui.pid).filter((r) => !q || L.norm(r.title).includes(q)).slice(0, 30);
-    return `<div class="filters">${[["rezept", "Aus Bibliothek"], ["manuell", "Ohne Rezept"]].map(([k, t]) => `<button class="chip line" data-act="amTab" data-v="${k}" aria-pressed="${s.tab === k}">${t}</button>`).join("")}</div>
-      ${s.tab === "rezept" ? `<input id="am-q" type="search" placeholder="Rezept suchen" value="${esc(s.q || "")}" data-input="amq" aria-label="Rezept suchen">
-        <div class="minilist">${rs.map((r) => `<div><span><b>${esc(r.title)}</b><br><span class="note">${kcal(r.nut.perPortion.kcal)} kcal je Portion · ${esc(L.QUALITY_LABEL[r.nut.quality])}</span></span>
-          <span class="btns"><button class="btn sm" data-act="amAdd" data-id="${r.id}" data-s="geplant">Planen</button><button class="btn sm primary" data-act="amAdd" data-id="${r.id}" data-s="gegessen">Gegessen</button></span></div>`).join("") || `<div class="note">Keine Rezepte gefunden.</div>`}</div>`
-      : `<form data-submit="manualMeal" class="fgrid"><label class="f full">Was?<input id="mm-title" required placeholder="z. B. Brezel"></label>
-        <label class="f">kcal je Portion<input id="mm-kcal" type="number" inputmode="decimal" min="0" placeholder="keine Angabe"></label><label class="f">Portionen<input id="mm-p" type="number" inputmode="decimal" min="0.25" step="0.25" value="1"></label>
-        <label class="f">Protein g<input id="mm-protein" type="number" inputmode="decimal" min="0"></label><label class="f">Kohlenhydrate g<input id="mm-carbs" type="number" inputmode="decimal" min="0"></label><label class="f">Fett g<input id="mm-fat" type="number" inputmode="decimal" min="0"></label>
-        <label class="f">Status<select id="mm-status"><option value="gegessen">gegessen</option><option value="geplant">geplant</option></select></label>
-        <div class="note full">Ohne Kalorienwert wird nichts angerechnet und der Tag gilt als unvollständig.</div><button class="btn primary full">Eintragen</button></form>`}`;
+  function sheetAddMeal() { return sheetDescribe(ui.sheet); }
+
+  /** Gegessenes in eigenen Worten (getippt oder diktiert): KI zerlegt in Posten und schätzt die Kalorien; Mensch prüft und trägt ein. */
+  const aiApi = () => !!(window.FR_TEXT && window.FR_CONFIG && window.FR_CONFIG.ai === "api");
+  function sheetDescribe(s) {
+    if (!aiApi()) return `<label class="f full">Was hast du gegessen?<textarea id="ds-text" rows="4" data-input="dsText" placeholder="z. B. 3 Toast, ein Ei, 2 Toast mit Philadelphia und einer mit Nutella">${esc(s.dsText || "")}</textarea></label>
+      <label class="f">Mahlzeit<select id="ds-slot">${X.SLOTS.map(([k, t]) => `<option value="${k}" ${k === s.slot ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+      ${caps.assets ? `<label class="btn full">${ic("cam", 18)} ${s.dsPrev ? "Anderes Foto wählen" : "Foto vom Essen hinzufügen"}<input id="ds-photo" type="file" accept="image/*" hidden data-change="dsPhoto"></label>${s.dsPrev ? `<img class="dsprev" src="${esc(s.dsPrev)}" alt="Foto vom Essen">` : ""}` : ""}
+      <div class="note">Tipp: Mit der Mikrofon-Taste der iPhone-Tastatur kannst du sprechen. Text und Foto werden gespeichert; Claude berechnet die Kalorien und trägt die Mahlzeit ein, sobald du ihn dazu aufforderst. Bei einem Foto hilft ein Satz dazu, zum Beispiel was du davon gegessen hast.</div>
+      <button class="btn primary full" data-act="dsQueue">Speichern zum Berechnen</button>`;
+    const d = s.ds || {};
+    const res = d.items ? `<div class="card" style="margin:0"><div class="eyebrow">Geschätzt · Sicherheit: ${esc(d.confidence)}</div>
+        <div class="minilist">${d.items.map((i) => `<div><span>${esc(i.name)}</span><b>${de(i.kcal)} kcal</b></div>`).join("")}</div>
+        <div class="stats"><div class="stat"><b>≈ ${d.kcal == null ? "–" : de(d.kcal)}</b><span>kcal gesamt</span></div><div class="stat"><b>${d.protein == null ? "–" : de(d.protein)} g</b><span>Protein</span></div></div>
+        ${d.note ? `<div class="note">${esc(d.note)}</div>` : ""}
+        <label class="f">Mahlzeit<select id="ds-slot">${X.SLOTS.map(([k, t]) => `<option value="${k}" ${k === s.slot ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <button class="btn primary full" data-act="dsSave">Als gegessen eintragen</button></div>` : "";
+    return `<label class="f full">Was hast du gegessen?<textarea id="ds-text" rows="4" data-input="dsText" placeholder="z. B. 3 Toast, ein Ei, 2 Toast mit Philadelphia und einer mit Nutella">${esc(s.dsText || "")}</textarea></label>
+      ${window.FR_PHOTO ? `<label class="btn full">${ic("cam", 18)} ${s.dsPrev ? "Anderes Foto wählen" : "Foto vom Essen hinzufügen"}<input id="ds-photo" type="file" accept="image/*" hidden data-change="dsPhoto"></label>${s.dsPrev ? `<img class="dsprev" src="${esc(s.dsPrev)}" alt="Foto vom Essen">` : ""}` : ""}
+      <button class="btn primary full" data-act="dsRun" ${d.busy ? "disabled" : ""}>${d.busy ? "Wird berechnet …" : d.items ? "Neu berechnen" : "Berechnen"}</button>
+      ${d.error ? `<div class="notice">${esc(d.error)}</div>` : ""}${res}`;
   }
 
   function sheetPlan() {
@@ -962,13 +1275,22 @@ Regeln:
       <button class="btn primary full">Eintragen</button></form>`;
   }
 
+  /** Posten einer geschätzten Mahlzeit: Menge pro Posten anpassbar (Faktor zur Schätzung), Annahmen der KI zur Nachvollziehbarkeit. */
+  function mealItemsHtml(m) {
+    const its = m.manual.items, fx = (it) => (it.f > 0 ? it.f : 1);
+    const rows = its.map((it, i) => `<div class="itm"><span class="nm">${esc(it.name)}${fx(it) !== 1 ? `<br><span class="note">geschätzt: Faktor 1 → jetzt ${deA(fx(it))}×</span>` : ""}</span>
+      <div class="stepper" role="group" aria-label="Menge"><button data-act="itemF" data-id="${m.id}" data-i="${i}" data-d="-0.25" aria-label="weniger">−</button><span>${deA(fx(it))}×</span><button data-act="itemF" data-id="${m.id}" data-i="${i}" data-d="0.25" aria-label="mehr">+</button></div>
+      <b class="kc">${it.kcal == null ? "–" : de(Math.round(it.kcal * fx(it)))} kcal</b></div>`).join("");
+    const n = m.manual.note ? `<div class="note"><b>Annahmen der Schätzung:</b> ${esc(m.manual.note)}${m.manual.confidence ? ` (Sicherheit: ${esc(m.manual.confidence)})` : ""}</div>` : "";
+    return `<div class="items"><div class="eyebrow">Posten und Mengen</div>${rows}<div class="note">Faktor 1 = wie geschätzt, 0,5 = halbe Menge, 2 = doppelte Menge. Die Summe oben passt sich an.</div>${n}</div>`;
+  }
   function sheetMealMenu() {
     const m = store.meals(ui.pid, ui.date).find((x) => x.id === ui.sheet.id);
     if (!m) return `<div class="note">Eintrag nicht mehr vorhanden.</div>`;
     return `<div><b>${esc(m.title)}</b><div class="note">${esc(SLOT_LABEL[m.slot])} · ${deA(m.portions)} Portion(en) · ${kcal(m.total.kcal)} kcal · ${esc(L.QUALITY_LABEL[m.quality] || "")}</div></div>
       <label class="f">Mahlzeit verschieben<select id="mm-slot" data-change="mealSlot" data-id="${m.id}">${X.SLOTS.map(([k, t]) => `<option value="${k}" ${m.slot === k ? "selected" : ""}>${t}</option>`).join("")}</select></label>
-      ${!m.recipeId ? `<form data-submit="manualEdit" data-id="${m.id}" class="fgrid">${[["kcal", "kcal je Portion"], ["protein", "Protein g"], ["carbs", "KH g"], ["fat", "Fett g"]].map(([k, t]) => `<label class="f">${t}<input id="me-${k}" type="number" inputmode="decimal" min="0" value="${m.per[k] ?? ""}"></label>`).join("")}<button class="btn full">Werte korrigieren</button></form>` : ""}
-      <div class="btns">${m.recipeId && m.recipeExists ? `<button class="btn" data-act="openRecipe" data-id="${m.recipeId}">Rezept öffnen</button>` : ""}<button class="btn danger" data-act="delMeal" data-id="${m.id}">Eintrag entfernen</button></div>`;
+      ${!m.recipeId && m.manual && Array.isArray(m.manual.items) && m.manual.items.length ? mealItemsHtml(m) : ""}
+      ${!m.recipeId && !(m.manual && Array.isArray(m.manual.items) && m.manual.items.length) ? `<form data-submit="manualEdit" data-id="${m.id}" class="fgrid">${[["kcal", "kcal je Portion"], ["protein", "Protein g"], ["carbs", "KH g"], ["fat", "Fett g"]].map(([k, t]) => `<label class="f">${t}<input id="me-${k}" type="number" inputmode="decimal" min="0" value="${m.per[k] ?? ""}"></label>`).join("")}<button class="btn full">Werte korrigieren</button></form>` : ""}      <div class="btns">${m.recipeId && m.recipeExists ? `<button class="btn" data-act="openRecipe" data-id="${m.recipeId}">Rezept öffnen</button>` : ""}<button class="btn danger" data-act="delMeal" data-id="${m.id}">Eintrag entfernen</button></div>`;
   }
 
   /** Auswahlliste statt Tastatur: sinnvolle Schritte je Einheit, der aktuelle Wert ist immer enthalten. */
@@ -1081,6 +1403,7 @@ Regeln:
       const p = Math.max(0.5, Math.round((m.portions + Number(t.dataset.d)) * 4) / 4);
       if (p !== m.portions) await store.updateMeal(ui.pid, ui.date, m.id, { portions: p });
     }),
+    hkRun: () => { const el = document.getElementById("hk-name"), n = el ? el.value.trim() : ""; if (!n) { toast("Bitte den Namen des Kurzbefehls eintragen."); return; } LS.set("hkname", n); window.location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent(n); },
     copyText: async (t) => { try { await navigator.clipboard.writeText(t.dataset.text); toast("Kopiert"); } catch (e) { toast("Kopieren nicht möglich in dieser Ansicht."); } },
     rbShift: (t) => { const e = L.addDays(ui.rbEnd || today(), Number(t.dataset.n)); ui.rbEnd = e >= today() ? null : e; schedule(); },
     hmode: (t) => { ui.hmode = t.dataset.v; LS.set("hmode", ui.hmode); schedule(); },
@@ -1102,8 +1425,82 @@ Regeln:
     }),
     resnap: (t) => run("meal:" + t.dataset.id, () => store.resnapshotMeal(ui.pid, ui.date, t.dataset.id)),
     mealMenu: (t) => openSheet("mealMenu", { id: t.dataset.id }),
+    sgStart: () => openSheet("suggest", { sg: { stage: "input", text: "", servings: 2, cat: "main", have: [], missing: [], tried: [], recipe: null, ticked: new Set(), round: 0, busy: false, error: null, mic: false } }),
+    sgCat: (t) => { ui.sheet.sg.cat = t.dataset.v; renderSheet(true); },
+    sgMic: () => {
+      const g = ui.sheet.sg, SR = getSR(); if (!SR) return;
+      if (g.mic) { sgStopMic(); renderSheet(true); return; }
+      const r = new SR(); r.lang = "de-DE"; r.interimResults = false; r.continuous = true; sgRec = r; g.mic = true;
+      r.onresult = (e) => { let add = ""; for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) add += e.results[i][0].transcript + " "; add = add.trim(); if (add && ui.sheet && ui.sheet.sg === g) { g.text = (g.text ? g.text.replace(/[,\s]+$/, "") + ", " : "") + add; renderSheet(true); } };
+      r.onerror = () => { if (ui.sheet && ui.sheet.sg === g) { g.mic = false; renderSheet(true); } };
+      r.onend = () => { if (ui.sheet && ui.sheet.sg === g && g.mic) { g.mic = false; sgRec = null; renderSheet(true); } };
+      try { r.start(); } catch (e) { g.mic = false; } renderSheet(true);
+    },
+    sgGo: () => {
+      const g = ui.sheet.sg; if (g.busy) return; sgStopMic();
+      g.text = $("#sg-text") ? $("#sg-text").value : g.text; g.have = sgParse(g.text);
+      if (g.text.trim().length < 3) { g.error = "Bitte nenne mindestens eine Zutat oder ein Gericht."; renderSheet(true); return; }
+      g.missing = []; g.tried = []; g.round = 0; sgFetch(g);
+    },
+    sgPick: (t) => { const g = ui.sheet.sg, i = Number(t.dataset.i); if (g.busy || !g.options || !g.options[i]) return; g.pick = i; g.recipe = g.options[i]; g.ticked = new Set(); renderSheet(true); },
+    sgTick: (t) => { const g = ui.sheet.sg, i = Number(t.dataset.i); g.ticked.has(i) ? g.ticked.delete(i) : g.ticked.add(i); renderSheet(true); },
+    sgAgain: () => {
+      const g = ui.sheet.sg; if (g.busy || !g.ticked.size) return;
+      const gone = g.recipe.ingredients.filter((_, i) => g.ticked.has(i)).map((it) => it.name);
+      const kept = g.recipe.ingredients.filter((it, i) => !g.ticked.has(i) && it.kind !== "gewuerz").map((it) => it.name);
+      g.missing = [...new Set([...g.missing, ...gone])];
+      g.have = g.mode === "wunsch" ? g.have : [...new Set([...g.have, ...kept])].filter((h) => !g.missing.some((m) => m.toLowerCase() === h.toLowerCase()));
+      g.tried = [...g.tried, ...(g.options || [g.recipe]).map((o) => o.title)].slice(-12);
+      sgFetch(g, g.recipe.variant || (g.options && g.options.length > 1 ? (g.pick ? "besonders" : "einfach") : undefined));
+    },
+    sgBack: () => { const g = ui.sheet.sg; g.stage = "input"; g.error = null; renderSheet(true); },
+    sgSave: () => {
+      const g = ui.sheet.sg, r = g.recipe; if (!r || g.ticked.size) return;
+      const h = new Date().getHours(), slot = g.cat === "fruehstueck" ? "fruehstueck" : h < 15 ? "mittag" : "abend";
+      const zut = r.ingredients.map((it) => (it.amount == null ? "" : deA(it.amount) + (it.unit ? " " + it.unit : "") + " ") + it.name).join(", ");
+      const text = `1 Portion ${r.title} (Rezept für ${deA(r.servings)} Portionen: ${zut})`;
+      openSheet("addMeal", { slot, tab: "beschreiben", q: "", token: "add-" + Math.random().toString(36).slice(2, 10), dsText: text });
+      ACT.dsRun();
+    },
+    itemF: (t) => run("meal:" + t.dataset.id, async () => {
+      const m = store.meals(ui.pid, ui.date).find((x) => x.id === t.dataset.id); const idx = Number(t.dataset.i);
+      if (!m || !m.manual || !m.manual.items || !m.manual.items[idx]) return;
+      const cur = m.manual.items[idx].f > 0 ? m.manual.items[idx].f : 1;
+      await store.scaleManualItem(ui.pid, ui.date, m.id, idx, cur + Number(t.dataset.d)); renderSheet(true);
+    }),
     delMeal: (t) => run("meal:" + t.dataset.id, async () => { await store.deleteMeal(ui.pid, ui.date, t.dataset.id); closeSheet(); toast("Eintrag entfernt"); }),
-    addMeal: (t) => openSheet("addMeal", { slot: t.dataset.slot, tab: "rezept", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }),
+    addMeal: (t) => openSheet("addMeal", { slot: t.dataset.slot, tab: "beschreiben", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }),
+    partnerTake: async (t) => { await store.addMeal(ui.pid, ui.date, t.dataset.slot, { recipeId: t.dataset.id, status: "geplant", servings: Number(t.dataset.sv) || 4 }); },
+    describe: () => { const h = new Date().getHours(); openSheet("addMeal", { slot: h < 11 ? "fruehstueck" : h < 15 ? "mittag" : "abend", tab: "beschreiben", q: "", token: "add-" + Math.random().toString(36).slice(2, 10) }); },
+    dsQueue: () => run("dsq", async () => {
+      const el = document.getElementById("ds-text"), text = el ? el.value : "";
+      const blob = ui.sheet.dsBlob;
+      if (text.trim().length < 3 && !blob) { toast("Bitte erst eintragen, was du gegessen hast."); return; }
+      let image = null;
+      if (blob && caps.assets) image = (await caps.assets.upload(blob, { type: "image/jpeg" })).id;
+      await store.addMealRequest(ui.pid, ui.date, val("ds-slot") || ui.sheet.slot, text, image); closeSheet();
+    }),
+    dsDel: (t) => run("dsd", () => store.deleteImport(t.dataset.id)),
+    dsRun: async () => {
+      const sh = ui.sheet, el = document.getElementById("ds-text"); if (!sh) return;
+      sh.dsText = el ? el.value : sh.dsText || "";
+      if (!sh.dsText.trim() && !sh.dsBlob) { toast("Bitte erst eintragen, was du gegessen hast, oder ein Foto wählen."); return; }
+      sh.ds = { busy: true }; renderSheet(true);
+      try {
+        let o;
+        if (sh.dsBlob && window.FR_PHOTO) {
+          const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(sh.dsBlob); });
+          o = await window.FR_PHOTO(b64, sh.dsText.trim());
+        } else o = await window.FR_TEXT(sh.dsText.trim());
+        if (ui.sheet === sh) sh.ds = o; }
+      catch (err) { if (ui.sheet === sh) sh.ds = { error: err && err.message ? err.message : "Berechnung nicht möglich." }; }
+      if (ui.sheet === sh) renderSheet(true);
+    },
+    dsSave: () => run("ds", async () => {
+      const d = ui.sheet && ui.sheet.ds; if (!d || !d.items || d.kcal == null) return;
+      await store.addMeal(ui.pid, ui.date, val("ds-slot") || ui.sheet.slot, { id: ui.sheet.token, title: d.title, manual: { kcal: d.kcal, protein: d.protein, carbs: d.carbs, fat: d.fat, items: d.items, note: d.note || "", confidence: d.confidence || null }, portions: 1, status: "gegessen" });
+      closeSheet();
+    }),
     amTab: (t) => { ui.sheet.tab = t.dataset.v; renderSheet(true); },
     amAdd: (t) => run("am", async () => {
       await store.addMeal(ui.pid, ui.date, ui.sheet.slot, { recipeId: t.dataset.id, status: t.dataset.s, id: ui.sheet.token, servings: 4 });
@@ -1115,21 +1512,25 @@ Regeln:
       const k = t.dataset.k, v = t.dataset.v === "" ? null : k === "maxMinutes" ? Number(t.dataset.v) : t.dataset.v;
       ui.radar = { ...ui.radar, [k]: ui.radar[k] === v ? null : v }; LS.set("radar", ui.radar); ensureDrawn(); schedule();
     },
-    shopResetAll: () => run("shop", async () => { await store.shoppingReset(shopDate(), ui.scope === "alle" || store.profiles().some((p) => p.id === ui.scope) ? ui.scope : "alle"); ui.showDone = false; toast("Einkaufsliste zurückgesetzt"); }),
+    shopResetAll: () => run("shop", async () => { const sc = ui.scope === "alle" || store.profiles().some((p) => p.id === ui.scope) ? ui.scope : "alle"; const had = !!(store.S.shopping || {})[`${shopDate()}__${sc}`]; await store.shoppingReset(shopDate(), sc); ui.showDone = false; toast(had ? "Einkaufsliste zurückgesetzt: Häkchen, geänderte Mengen und eigene Einträge entfernt" : "Nichts zurückzusetzen"); }),
     later: (rid) => { ui.later = ui.later.filter((x) => x !== rid).concat(rid); ui.lastDecision = null; schedule(); },
     resetDeck: () => run("draw", async () => { ui.radar = { ...ui.radar, stage: "alle" }; LS.set("radar", ui.radar); ui.lastDecision = null; ui.later = []; await store.radarReset(ui.pid, ui.date, ui.radar); schedule(); }),
     toggleExtras: () => { ui.open.has("extras") ? ui.open.delete("extras") : ui.open.add("extras"); LS.set("extras", ui.open.has("extras")); schedule(); },
-    cookStart: (t) => { const sv = Number(t.dataset.sv) || (ui.sheet && ui.sheet.sv) || 4; ui.sheet = null; renderSheet(true); ui.cook = { id: t.dataset.id, step: 0, sv, tab: "steps", awake: null }; renderCook(); wakeOn(); },
-    cookNav: (t) => { ui.cook.step += Number(t.dataset.d); renderCook(); },
+    cookStart: (t) => { const sv = Number(t.dataset.sv) || (ui.sheet && ui.sheet.sv) || 4; ui.sheet = null; renderSheet(true); ui.cook = { id: t.dataset.id, step: 0, sv, tab: "steps", awake: null, hf: !!getSR() && LS.get("hf", true) !== false }; renderCook(); wakeOn(); hfListen(); },
+    cookNav: (t) => { const c = ui.cook; c.step += Number(t.dataset.d); renderCook(); if (c.live) { const { steps } = cookData(), k = Math.max(0, Math.min(steps.length - 1, c.step)); liveNote("thinking", `Der Nutzer ist per Tippen jetzt bei Schritt ${k + 1} von ${steps.length}: ${steps[k]}`); } },
     cookTab: (t) => { ui.cook.tab = t.dataset.v; renderCook(); },
-    cookEnd: () => { ui.cook = null; wakeOff(); renderCook(); },
-    pickMeal: (t) => { ui.radar = { ...ui.radar, meal: t.dataset.v || null, slot: t.dataset.v || null, stage: "alle" }; LS.set("radar", { stage: "alle" }); ui.lastDecision = null; ui.drawnKey = null; if (t.dataset.v) ensureDrawn(); schedule(); },
+    cookHf: () => { const c = ui.cook; if (!c) return; c.hf = !c.hf; LS.set("hf", c.hf); if (c.hf) { if (!c.convo) hfListen(); } else hfStop(); renderCook(); },
+    cookEnd: () => { hfStop(); if (ui.cook) ui.cook.convo = false; if (live) { liveSend({ type: "session.close" }); liveCleanup(); } stopListen(); silence(); ui.cook = null; wakeOff(); clearInterval(tick); tick = null; renderCook(); },
+    cookMic: () => convoToggle(),
+    cookSpeak: () => { const c = ui.cook; c.speak = c.speak === false; if (c.speak === false) silence(); renderCook(); },
+    cookTimerStop: () => { ui.cook.timer = null; clearInterval(tick); tick = null; renderCook(); },
+    pickMeal: async (t) => { if (t.classList && t.dataset.v) { t.classList.add("flash"); await new Promise((res) => setTimeout(res, 100)); } ui.radar = { ...ui.radar, meal: t.dataset.v || null, slot: t.dataset.v || null, target: t.dataset.v ? t.dataset.slot || null : null, stage: "alle" }; LS.set("radar", { stage: "alle" }); ui.lastDecision = null; ui.drawnKey = null; if (t.dataset.v) ensureDrawn(); schedule(); },
     askSlot: (rid) => openSheet("pickSlot", { id: rid }),
     pickSlot: (t) => { const rid = ui.sheet.id; closeSheet(); decide(rid, "keep", undefined, t.dataset.slot); },
     stage: (t) => { ui.radar = { ...ui.radar, stage: t.dataset.v }; LS.set("radar", ui.radar); ui.lastDecision = null; ensureDrawn(); schedule(); },
     draw: () => run("draw", async () => { const n = await store.radarDraw(ui.pid, ui.date, ui.radar); if (!n) toast("Keine weiteren passenden Gerichte – Filter lockern oder Rezepte ergänzen."); }),
     svStep: (t) => { ui.sheet.sv = Math.max(1, Math.min(40, (ui.sheet.sv || 4) + Number(t.dataset.d))); renderSheet(true); },
-    decide: (t) => { if (t.dataset.a === "later") return ACT.later(t.dataset.id); if (t.dataset.a === "keep" && !ui.sheet && ui.radar.meal === "main") return ACT.askSlot(t.dataset.id); decide(t.dataset.id, t.dataset.a, t.dataset.sv); if (ui.sheet && ui.sheet.type === "recipe" && t.dataset.a === "keep") closeSheet(); },
+    decide: (t) => { if (t.dataset.a === "later") return ACT.later(t.dataset.id); if (t.dataset.a === "keep" && !ui.sheet && ui.radar.meal === "main" && !ui.radar.target) return ACT.askSlot(t.dataset.id); decide(t.dataset.id, t.dataset.a, t.dataset.sv); if (ui.sheet && ui.sheet.type === "recipe" && t.dataset.a === "keep") closeSheet(); },
     undoDecision: () => { const d = ui.lastDecision; if (d && d.pid === ui.pid && d.date === ui.date) { ui.lastDecision = null; if (d.deleted) run("undo:" + d.rid, () => store.restoreRecipe(d.rid, d.deleted)); else decide(d.rid, "undo"); } },
     toastUndo: () => { ui.toast = null; ACT.undoDecision(); },
     fav: (t) => run("fav:" + t.dataset.id, async () => { const on = await store.toggleFavorite(ui.pid, t.dataset.id); toast(on ? "★ Favorit gespeichert – erscheint öfter" : "Favorit entfernt"); }),
@@ -1186,6 +1587,26 @@ Regeln:
       toast("Link vorgemerkt – jetzt im Chat „Links importieren“ schreiben");
       renderSheet(true);
     }),
+    impLinkLoad: async () => {
+      const im = ui.sheet && ui.sheet.im; if (!im || im.busy) return;
+      const u = (im.url || val("imp-url") || "").trim();
+      if (!im.cat) { toast("Bitte Kategorie wählen: Frühstück oder Mittag / Abend."); return; }
+      if (!/^https:\/\//i.test(u)) { im.error = "Bitte einen Link mit https:// eingeben."; renderSheet(true); return; }
+      im.busy = true; im.error = null; renderSheet(true);
+      try {
+        const out = await window.FR_LINK(u);
+        if (!out || out.error || !out.recipe) throw new Error(out && out.error ? out.error : "Kein Rezept gefunden.");
+        const parsed = L.parseRecipeJson({ ...out.recipe, category: im.cat, source: u });
+        if (out.recipe.nutrition && out.recipe.nutrition.kcal != null && !out.recipe.nutrition.basis) parsed.unsure.push("Bezug der Nährwerte unklar – als „je Portion“ angenommen");
+        if (out.image && out.image.data) {
+          const bin = atob(out.image.data), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          const ext = { "image/png": "png", "image/webp": "webp", "image/gif": "gif" }[out.image.type] || "jpg";
+          im.file = new File([u8], "rezept." + ext, { type: out.image.type });
+        } else parsed.unsure.push("Kein Bild auf der Seite gefunden – du kannst später eins ergänzen");
+        await toEditor(parsed, JSON.stringify(out.recipe, null, 1), "Von der Webseite gelesen. Orange markierte Felder bitte prüfen.", "api-link");
+      } catch (e) { im.error = (e && e.message) || "Das hat nicht geklappt."; }
+      finally { im.busy = false; if (ui.sheet && ui.sheet.im) renderSheet(true); }
+    },
     impLinkDel: (f) => run("impLinkDel", async () => { await store.deleteImport(f.dataset.id); renderSheet(true); }),
     impLinkUse: (f) => {
       const l = store.linkImports().find((x) => x.id === f.dataset.id);
@@ -1219,6 +1640,7 @@ Regeln:
   };
 
   const SUBMIT = {
+    cookAsk: () => { const el = document.getElementById("cook-q"); const v = el ? el.value : ""; if (el) el.value = ""; cookHear(v); },
     profile: () => run("profile", async () => {
       const age = num("p-age");
       await store.saveProfile(ui.pid, { name: val("p-name") || "Profil", sex: val("p-sex"), birthDate: val("p-birth") || null, ageYears: age,
@@ -1374,6 +1796,8 @@ Regeln:
   document.addEventListener("input", (e) => {
     const t = e.target, ed = ui.sheet && ui.sheet.ed;
     if (t.dataset.input === "libq") { ui.lib.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(() => { const pos = t.selectionStart; renderMain(); const n = $("#lib-q"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }, 250); }
+    if (t.dataset.input === "dsText" && ui.sheet) { ui.sheet.dsText = t.value; return; }
+    if (t.dataset.input === "sgText" && ui.sheet && ui.sheet.sg) { ui.sheet.sg.text = t.value; return; }
     if (t.dataset.input === "amq") { ui.sheet.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(() => { renderSheet(true); const n = $("#am-q"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 250); }
     if (t.dataset.input === "impUrl") ui.sheet.im.url = t.value;
     if (t.dataset.input === "impText") ui.sheet.im.text = t.value;
@@ -1390,6 +1814,7 @@ Regeln:
   document.addEventListener("change", async (e) => {
     const t = e.target, ed = ui.sheet && ui.sheet.ed;
     if (t.dataset.change === "libsort") { ui.lib.sort = t.value; schedule(); }
+    if (t.dataset.change === "sgSv" && ui.sheet && ui.sheet.sg) ui.sheet.sg.servings = Number(t.value) || 2;
     if (ed && t.dataset.ing != null && t.tagName === "SELECT") { ed.data.ingredients[Number(t.dataset.ing)].foodId = t.value; renderSheet(true); }
     if (ed && (t.dataset.bind || t.dataset.nut) && t.tagName === "SELECT") (t.dataset.bind ? (ed.data[t.dataset.bind] = t.value) : (ed.data.nutrition[t.dataset.nut] = t.value));
     if (ed && t.dataset.ing != null && t.dataset.k === "name") renderSheet(true); // Zuordnung neu anzeigen
@@ -1402,6 +1827,31 @@ Regeln:
       if (ui.sheet.im.preview) URL.revokeObjectURL(ui.sheet.im.preview);
       ui.sheet.im.preview = URL.createObjectURL(f);
       renderSheet(true);
+    }
+    if (ui.sheet && ui.sheet.type === "addMeal" && t.dataset.change === "mmPhoto" && t.files[0] && window.FR_PHOTO) {
+      const sh = ui.sheet; sh.est = { busy: true }; renderSheet(true);
+      try {
+        const im = (await loadImage(t.files[0])).el, k = Math.min(1, 1024 / Math.max(im.naturalWidth, im.naturalHeight));
+        const c = document.createElement("canvas"); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        const o = await window.FR_PHOTO(c.toDataURL("image/jpeg", 0.8));
+        if (ui.sheet === sh) sh.est = o;
+      } catch (err) { if (ui.sheet === sh) sh.est = { error: err && err.message ? err.message : "Schätzung nicht möglich." }; }
+      if (ui.sheet === sh) renderSheet(true);
+      return;
+    }
+    if (ui.sheet && ui.sheet.type === "addMeal" && t.dataset.change === "dsPhoto" && t.files[0]) {
+      const sh = ui.sheet, el = document.getElementById("ds-text"); if (el) sh.dsText = el.value;
+      try {
+        const im = (await loadImage(t.files[0])).el, k = Math.min(1, 1280 / Math.max(im.naturalWidth, im.naturalHeight));
+        const c = document.createElement("canvas"); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        const blob = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.82));
+        if (sh.dsPrev) URL.revokeObjectURL(sh.dsPrev);
+        sh.dsBlob = blob; sh.dsPrev = URL.createObjectURL(blob);
+      } catch (err) { toast("Bild konnte nicht geladen werden."); }
+      if (ui.sheet === sh) renderSheet(true);
+      return;
     }
     if (ed && t.dataset.change === "edImage" && t.files[0]) {
       try { ed.image = await loadImage(t.files[0]); const b = autoBox(ed.image.el); ed.box = b || { l: 0, t: 0, r: 100, b: 100 }; } catch (err) { toast("Bild konnte nicht geladen werden."); }
@@ -1428,6 +1878,8 @@ Regeln:
         ui.status = Object.keys(S.profiles).length ? "ok" : "leer";
         if (ui.status === "ok" && ui.view === "radar") ensureDrawn();
       } else if (ui.status === "leer" && Object.keys(S.profiles).length) ui.status = "ok";
+      if (ui.status === "ok" && S.ready.days && S.ready.imports) for (const pr of visibleProfiles()) store.applyMealResults(pr.id).then((n) => n && toast(n + " Mahlzeit" + (n === 1 ? "" : "en") + " berechnet und eingetragen")).catch((e) => console.error(e));
+      if (ui.status === "ok" && S.ready.days && S.ready.plan) for (const pr of visibleProfiles()) store.backfillPlan(pr.id).then(() => store.adoptPartner(pr.id)).then(() => store.autoMatch(pr.id)).then((l) => { if (l && l.length) toast("Match" + (l[0].who ? " mit " + l[0].who : "") + ": " + l.map((x) => x.title).join(", ") + " – steht jetzt bei dir zum Kochen"); }).catch((e) => console.error(e));
       if (ui.status === "ok" && S.ready.health && S.ready.weights && S.ready.days) for (const pr of visibleProfiles()) if (store.hkOpen(pr.id).length) store.importHealth(pr.id).then((n) => n && toast(n + " Wert" + (n === 1 ? "" : "e") + " aus Apple Health übernommen")).catch((e) => console.error(e));
       schedule();
     });

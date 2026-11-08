@@ -491,7 +491,7 @@ body { background: transparent; min-height: 100dvh; }
 .sgacts { display: grid; gap: 8px; } .sgacts .btn { width: 100%; height: 48px; min-height: 48px; box-sizing: border-box; }
 
 </style>
-<script>window.FR_BUILD="08.11. 12:33";</script>
+<script>window.FR_BUILD="08.11. 15:14";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -3041,7 +3041,7 @@ Regeln:
     const t = q.toLowerCase().replace(/[.,!?]/g, " ").replace(/\s+/g, " ").trim();
     const { r, steps, ings } = cookData(), n = steps.length, i = c.step;
     c.log = (c.log || []).concat({ role: "user", content: q }).slice(-8);
-    if (/^(gespräch beenden|beende das gespräch|gespräch stoppen|tschüss|auf wiedersehen|ende|fertig)$/.test(t)) { c.convo = false; stopListen(); return cookReply("Gespräch beendet. Guten Appetit!"); }
+    if (WAKE_END(t) || /^(gespräch beenden|beende das gespräch|gespräch stoppen|tschüss|auf wiedersehen|ende|fertig)$/.test(t)) { c.convo = false; stopListen(); hfResume(1200); return cookReply("Gespräch beendet. Guten Appetit!"); }
     let m;
     if ((m = t.match(/(\d+)\s*(stunde|stunden|minute|minuten|min|sekunde|sekunden|sek)/)) && /timer|wecker|erinner|stopp/.test(t)) {
       const k = Number(m[1]), u = m[2]; const sec = /^st/.test(u) ? k * 3600 : /^se/.test(u) ? k : k * 60;
@@ -3089,7 +3089,7 @@ Regeln:
     const L = live, c = ui.cook; if (!L) return; L.closing = true;
     liveSend({ type: "session.close" });
     setTimeout(liveCleanup, 500);
-    if (c) { c.convo = false; c.live = false; c.status = ""; c.listening = false; c.reply = msg || ""; renderCook(); }
+    if (c) { c.convo = false; c.live = false; c.status = ""; c.listening = false; c.reply = msg || ""; renderCook(); hfResume(1000); }
   }
   function liveFail(err) {
     const c = ui.cook, msg = err && err.message ? err.message : "Verbindung nicht möglich.";
@@ -3149,7 +3149,7 @@ Regeln:
     if (t === "session.input_transcript.delta" || t === "session.output_transcript.delta") {
       const side = t === "session.input_transcript.delta" ? "in" : "out"; L.last = Date.now();
       if (L.side !== side) { L.side = side; if (side === "in") c.heard = ""; else c.reply = ""; }
-      if (side === "in") { c.heard += m.delta || ""; c.status = "listen"; } else { c.reply += m.delta || ""; c.status = "speak"; }
+      if (side === "in") { c.heard += m.delta || ""; c.status = "listen"; if (WAKE_END(c.heard.toLowerCase().replace(/[.,!?]/g, " "))) { liveStop("Gespräch beendet. Guten Appetit!"); return; } } else { c.reply += m.delta || ""; c.status = "speak"; }
       liveRender(); return;
     }
     if (t === "session.closed") { if (live === L) liveStop(); return; }
@@ -3173,7 +3173,7 @@ Regeln:
   }
   function convoStop(msg) {
     const c = ui.cook; if (!c) return;
-    c.convo = false; c.listening = false; c.status = ""; stopListen(); if (msg) cookReply(msg); else renderCook();
+    c.convo = false; c.listening = false; c.status = ""; stopListen(); if (msg) cookReply(msg); else renderCook(); hfResume(900);
   }
   function convoListen() {
     const c = ui.cook; if (!c || !c.convo) return;
@@ -3211,9 +3211,28 @@ Regeln:
     say(`Gespräch gestartet. Wir sind bei Schritt ${c.step + 1} von ${steps.length}. ${steps[c.step]} Sag zum Beispiel: weiter, wiederholen oder stell mir eine Frage.`);
     speakIdle().then(() => { if (ui.cook && ui.cook.convo) convoListen(); });
   }
+  /** Auf Zuruf: Im Leerlauf hört nur die Apple-Spracherkennung (ohne API-Kosten) auf „Foodie, starte das Gespräch“. Erst dann beginnt das (kostenpflichtige) GPT-Gespräch. */
+  const WAKE_START = (t) => /gespr[äa]ch/.test(t) && /(start|beginn|anfang|los)/.test(t) && !/(beend|stopp|ende)/.test(t);
+  const WAKE_END = (t) => (/gespr[äa]ch/.test(t) && /(beend|stopp|ende\b|aufh[öo]r)/.test(t)) || /^(foodie|foody|fudi)[ ,]+(ende|stopp|tsch[üu]ss)/.test(t);
+  let hfRec = null, hfTimer = 0;
+  function hfStop() { clearTimeout(hfTimer); const r = hfRec; hfRec = null; if (r) { r.onend = null; r.onresult = null; r.onerror = null; try { r.abort(); } catch (e) { /* egal */ } } }
+  function hfListen() {
+    hfStop();
+    const c = ui.cook, SR = getSR(); if (!c || !c.hf || c.convo || !SR) return;
+    const rc = new SR(); rc.lang = "de-DE"; rc.continuous = true; rc.interimResults = true; hfRec = rc;
+    rc.onresult = (ev) => {
+      const txt = Array.from(ev.results || []).slice(ev.resultIndex || 0).map((r) => (r[0] ? r[0].transcript : "")).join(" ").toLowerCase().replace(/[.,!?]/g, " ");
+      if (WAKE_START(txt) && ui.cook && !ui.cook.convo) { hfStop(); convoToggle(); }
+    };
+    rc.onerror = (ev) => { const er = ev && ev.error; if (er === "not-allowed" || er === "service-not-allowed") { hfStop(); if (ui.cook) { ui.cook.hf = false; ui.cook.reply = "Auf Zuruf braucht Mikrofon und Spracherkennung. Erlaube beides in den iPhone-Einstellungen."; renderCook(); } } };
+    rc.onend = () => { if (hfRec === rc) { hfRec = null; hfTimer = setTimeout(hfListen, 500); } };
+    try { rc.start(); } catch (e) { hfRec = null; hfTimer = setTimeout(hfListen, 1200); }
+  }
+  const hfResume = (ms) => { clearTimeout(hfTimer); hfTimer = setTimeout(() => { if (ui.cook && ui.cook.hf && !ui.cook.convo) hfListen(); }, ms || 800); };
   function convoToggle() {
     const c = ui.cook; if (!c) return;
     if (c.convo) { if (live) liveStop("Gespräch beendet."); else { silence(); convoStop("Gespräch beendet."); } return; }
+    hfStop();
     if (liveOn()) liveStart(); else appleStart();
   }
 
@@ -3252,7 +3271,8 @@ Regeln:
         : n ? `<div class="cook-prog"><b>Schritt ${i + 1} von ${n}</b><div class="bar"><i style="width:${((i + 1) / n) * 100}%"></i></div></div>
           <div class="cook-body"><p class="cook-step">${emph(steps[i])}</p>${i + 1 < n ? `<p class="cook-next"><span class="note">Danach:</span> ${emph(steps[i + 1])}</p>` : ""}</div>
 ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "live" : ""}" role="status"><b>${c.status === "connect" ? "Verbinde …" : c.busy ? "Ich denke nach …" : c.status === "listen" || c.listening ? "Ich höre zu …" : c.status === "speak" ? "Ich spreche …" : "Gleich bin ich dran …"}</b>${c.heard ? `<div class="note">Du: ${esc(c.heard)}</div>` : ""}${c.reply ? `<div>${esc(c.reply)}</div>` : ""}</div>` : c.reply || c.busy ? `<div class="cook-reply" role="status">${c.busy ? "Ich denke nach …" : esc(c.reply)}</div>` : ""}
-          <div class="cook-voice"><button class="btn ${c.convo ? "primary" : ""}" data-act="cookMic" aria-pressed="${!!c.convo}">${c.convo ? "■ Gespräch beenden" : "🎙 Gespräch starten"}</button>${c.timer ? `<button class="btn" data-act="cookTimerStop" aria-label="Timer stoppen"><span id="cook-timer">⏱</span> ✕</button>` : ""}</div>
+          <div class="cook-voice"><button class="btn ${c.convo ? "primary" : ""}" data-act="cookMic" aria-pressed="${!!c.convo}">${c.convo ? "■ Gespräch beenden" : "🎙 Gespräch starten"}</button>${getSR() ? `<button class="btn ${c.hf ? "primary" : ""}" data-act="cookHf" aria-pressed="${!!c.hf}">👂 Auf Zuruf: ${c.hf ? "an" : "aus"}</button>` : ""}${c.timer ? `<button class="btn" data-act="cookTimerStop" aria-label="Timer stoppen"><span id="cook-timer">⏱</span> ✕</button>` : ""}</div>
+          ${c.hf && !c.convo ? `<div class="note">Im Leerlauf höre ich nur auf „Foodie, starte das Gespräch“ (Apple-Spracherkennung, keine API-Kosten). „Gespräch beenden“ schaltet wieder in den Leerlauf.</div>` : ""}
           <form class="cook-ask" data-submit="cookAsk"><input id="cook-q" autocomplete="off" enterkeyhint="send" placeholder="${aiChat() ? "Frage tippen oder diktieren …" : "Befehl tippen, z. B. wo bin ich"}"><button class="btn">Senden</button></form>
                     <div class="cook-nav"><button class="btn" data-act="cookNav" data-d="-1" ${i === 0 ? "disabled" : ""}>‹ Zurück</button>${i + 1 < n ? `<button class="btn primary" data-act="cookNav" data-d="1">Weiter ›</button>` : `<button class="btn primary" data-act="cookEnd">Fertig ✓</button>`}</div>`
           : `<div class="cook-body"><div class="note">Zu diesem Rezept sind keine Schritte hinterlegt.</div></div>`}
@@ -3553,10 +3573,11 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
     later: (rid) => { ui.later = ui.later.filter((x) => x !== rid).concat(rid); ui.lastDecision = null; schedule(); },
     resetDeck: () => run("draw", async () => { ui.radar = { ...ui.radar, stage: "alle" }; LS.set("radar", ui.radar); ui.lastDecision = null; ui.later = []; await store.radarReset(ui.pid, ui.date, ui.radar); schedule(); }),
     toggleExtras: () => { ui.open.has("extras") ? ui.open.delete("extras") : ui.open.add("extras"); LS.set("extras", ui.open.has("extras")); schedule(); },
-    cookStart: (t) => { const sv = Number(t.dataset.sv) || (ui.sheet && ui.sheet.sv) || 4; ui.sheet = null; renderSheet(true); ui.cook = { id: t.dataset.id, step: 0, sv, tab: "steps", awake: null }; renderCook(); wakeOn(); },
+    cookStart: (t) => { const sv = Number(t.dataset.sv) || (ui.sheet && ui.sheet.sv) || 4; ui.sheet = null; renderSheet(true); ui.cook = { id: t.dataset.id, step: 0, sv, tab: "steps", awake: null, hf: !!getSR() && LS.get("hf", true) !== false }; renderCook(); wakeOn(); hfListen(); },
     cookNav: (t) => { const c = ui.cook; c.step += Number(t.dataset.d); renderCook(); if (c.live) { const { steps } = cookData(), k = Math.max(0, Math.min(steps.length - 1, c.step)); liveNote("thinking", `Der Nutzer ist per Tippen jetzt bei Schritt ${k + 1} von ${steps.length}: ${steps[k]}`); } },
     cookTab: (t) => { ui.cook.tab = t.dataset.v; renderCook(); },
-    cookEnd: () => { if (ui.cook) ui.cook.convo = false; if (live) { liveSend({ type: "session.close" }); liveCleanup(); } stopListen(); silence(); ui.cook = null; wakeOff(); clearInterval(tick); tick = null; renderCook(); },
+    cookHf: () => { const c = ui.cook; if (!c) return; c.hf = !c.hf; LS.set("hf", c.hf); if (c.hf) { if (!c.convo) hfListen(); } else hfStop(); renderCook(); },
+    cookEnd: () => { hfStop(); if (ui.cook) ui.cook.convo = false; if (live) { liveSend({ type: "session.close" }); liveCleanup(); } stopListen(); silence(); ui.cook = null; wakeOff(); clearInterval(tick); tick = null; renderCook(); },
     cookMic: () => convoToggle(),
     cookSpeak: () => { const c = ui.cook; c.speak = c.speak === false; if (c.speak === false) silence(); renderCook(); },
     cookTimerStop: () => { ui.cook.timer = null; clearInterval(tick); tick = null; renderCook(); },

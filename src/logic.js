@@ -19,12 +19,12 @@
   // ======================================================================= Energiebedarf
   // PAL nach DGE: beschreibt den Alltag OHNE geplanten Sport. Sport wird separat angerechnet.
   const PAL_LEVELS = [
-    [1.4, "Bürojob, überwiegend sitzend, wenig Bewegung"],
-    [1.5, "Bürojob, überwiegend sitzend, moderate Alltagsbewegung"],
-    [1.6, "Sitzend, zeitweise gehend oder stehend"],
-    [1.7, "Sitzend, oft gehend oder stehend"],
-    [1.8, "Überwiegend gehend oder stehend"],
-    [1.9, "Überwiegend gehend oder stehend, körperlich fordernd"],
+    [1.4, "Büro, wenig Bewegung"],
+    [1.5, "Büro, moderate Bewegung"],
+    [1.6, "Sitzend, zeitweise gehend"],
+    [1.7, "Sitzend, oft gehend/stehend"],
+    [1.8, "Überwiegend gehend/stehend"],
+    [1.9, "Gehend/stehend, körperlich fordernd"],
   ];
 
   function ageOn(birthDate, ageYears, onISO) {

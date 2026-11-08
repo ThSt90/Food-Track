@@ -239,6 +239,16 @@
     if (typeof navigator !== "undefined" && navigator.serviceWorker && /^https?:/.test(root.location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
     const assets = createAssets(client, cfg);
     root.FR_ASSET = assets.url;
+    const aiCall = async (fn, body) => { // KI-Schätzung über Supabase-Funktionen (nur eingeloggt, nur Vorschlag)
+      try { const r = await client.req("/functions/v1/" + fn, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); return await r.json(); }
+      catch (e) { let m = e && e.message || ""; try { m = JSON.parse(m).error || m; } catch (x) { /* kein JSON */ } throw new Error(e && e.code === "offline" ? "Kein Netz" : m || "Schätzung nicht möglich."); }
+    };
+    root.FR_PHOTO = (image, text) => aiCall("meal-photo", { image, text });
+    root.FR_CHAT = (body) => aiCall("cook-chat", body);
+    root.FR_LIVE = (body) => aiCall("live-session", body);
+    root.FR_TEXT = (text) => aiCall("meal-text", { text });
+    root.FR_LINK = (url) => aiCall("recipe-link", { url });
+    root.FR_SUGGEST = (body) => aiCall("recipe-suggest", body);
     const downloads = { async save({ filename, data }) {
       const b = new Blob([typeof data === "string" ? data : JSON.stringify(data)], { type: "application/json" });
       const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = filename; document.body.appendChild(a); a.click(); a.remove();

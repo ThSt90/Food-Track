@@ -32,7 +32,7 @@
   const slotForCategory = (c, hour = 18) => (normCat(c) === "main" ? (hour < 15 ? "mittag" : "abend") : normCat(c));
   const OPEN = ["vorgemerkt", "geplant", "gekocht"];
   const SPORT_KINDS = [["kraft", "Krafttraining"], ["laufen", "Laufen"], ["rad", "Radfahren"], ["schwimmen", "Schwimmen"], ["golf", "Golf"], ["sonstiges", "Sonstiges"]];
-  const COLLECTIONS = ["profiles", "foods", "recipes", "favorites", "days", "weights", "shopping", "settings", "imports", "health"];
+  const COLLECTIONS = ["profiles", "foods", "recipes", "favorites", "days", "weights", "shopping", "settings", "imports", "health", "plan"];
   const DEFAULT_PROFILES = {
     p1: { name: "Profil 1", sex: "m", ageYears: 37, birthDate: null, heightCm: null, pal: 1.5, goalMode: "halten", deficitKcal: 500, goalKcalManual: null, targetWeightKg: null, sportCreditPct: 100, dislikes: "", likes: "" },
     p2: { name: "Profil 2", sex: "w", ageYears: 35, birthDate: null, heightCm: null, pal: 1.5, goalMode: "halten", deficitKcal: 500, goalKcalManual: null, targetWeightKg: null, sportCreditPct: 100, dislikes: "", likes: "" },
@@ -92,7 +92,8 @@
     const energyFor = (pid, date = today()) => (profile(pid) ? L.energy(profile(pid), currentWeight(pid, date), date) : null);
 
     async function createDefaultProfiles() {
-      for (const [id, p] of Object.entries(DEFAULT_PROFILES)) if (!S.profiles[id]) await queue("profiles/" + id, (ref) => ref.set(clone(p)));
+      const mine = typeof window !== "undefined" && window.FR_PROFILE;
+      for (const [id, p] of Object.entries(DEFAULT_PROFILES)) if (!S.profiles[id] && (!mine || mine === id)) await queue("profiles/" + id, (ref) => ref.set(clone(p)));
     }
 
     async function saveProfile(pid, fields, weightKg) {
@@ -112,7 +113,71 @@
         sportDone: false, complete: false, meals: {}, sport: {}, radar: {} };
     }
     /** Tagesziel und Sportanrechnung werden beim ersten Eintrag des Tages eingefroren. */
-    const dayPatch = (pid, date, change) => patch("days/" + dayKey(pid, date), dayBase(pid, date), change);
+    /** Gemeinsamer Kochplan: je Tag, welche Rezepte wer kocht/isst (ohne Verzehrdaten). Einkauf und Partneransicht lesen nur hieraus. */
+    async function syncPlan(pid, date) {
+      const dd = dayDoc(pid, date), cur = {};
+      for (const [id, m] of live(dd && dd.meals)) if (m.recipeId && !m.from) cur[id] = { pid, who: (profile(pid) || {}).name || "", slot: m.slot, recipeId: m.recipeId, title: m.title || "", servings: m.servings > 0 ? m.servings : 4, status: m.status };
+      const hasMeal = new Set(Object.values(cur).map((x) => x.recipeId));
+      for (const e of radarEntries(pid, date)) if ((e.status === "favorit" || e.status === "vorgemerkt") && S.recipes[e.rid] && !hasMeal.has(e.rid)) cur[`sel-${pid}-${e.rid}`] = { pid, who: (profile(pid) || {}).name || "", slot: null, recipeId: e.rid, title: S.recipes[e.rid].title || "", servings: 4, status: "ausgewaehlt" };
+      const old = ((S.plan && S.plan[date]) || {}).meals || {}, change = {};
+      for (const id of Object.keys(cur)) if (JSON.stringify(old[id]) !== JSON.stringify(cur[id])) change[id] = cur[id];
+      for (const [id, e] of live(old)) if (e.pid === pid && !cur[id]) change[id] = null;
+      if (Object.keys(change).length) await patch("plan/" + date, { meals: {} }, { meals: change });
+    }
+    const dayPatch = async (pid, date, change) => { const r = await patch("days/" + dayKey(pid, date), dayBase(pid, date), change); if (change && (change.meals || change.radar)) await syncPlan(pid, date); return r; };
+    const adopting = new Set();
+    /** Gerichte der Partnerin (heute und später) landen automatisch auch in meinem Tag; einmal entfernte kommen nicht wieder. */
+    async function adoptPartner(pid) {
+      if (adopting.has(pid)) return 0; adopting.add(pid); let n = 0;
+      try {
+        const t0 = today();
+        for (const [date, pl] of Object.entries(S.plan || {})) {
+          if (date < t0 || !pl || !pl.meals) continue;
+          for (const [pmid, m] of live(pl.meals)) {
+            if (String(pmid).startsWith("sel-")) continue;
+            if (m.pid === pid || !m.recipeId || m.status === "gegessen" || !S.recipes[m.recipeId]) continue;
+            const dd = dayDoc(pid, date), own = live(dd && dd.meals).map(([, x]) => x);
+            if ((dd && dd.ptSkip && dd.ptSkip[pmid]) || own.some((x) => x.from === pmid || x.recipeId === m.recipeId)) continue;
+            await addMeal(pid, date, m.slot, { id: "pt-" + pmid, recipeId: m.recipeId, status: "geplant", servings: m.servings, from: pmid }); n++;
+          }
+        }
+      } finally { adopting.delete(pid); }
+      return n;
+    }
+    const matching = new Set();
+    /** Match: Haben beide dasselbe Gericht ausgewählt (engere Auswahl oder vorgemerkt), wird es bei beiden fest geplant (zum Kochen), einmalig je Tag. */
+    async function autoMatch(pid) {
+      const found = [];
+      if (matching.has(pid)) return found; matching.add(pid);
+      try {
+        const t0 = today();
+        for (const [date, pl] of Object.entries(S.plan || {})) {
+          if (date < t0 || !pl || !pl.meals) continue;
+          for (const [pmid, m] of live(pl.meals)) {
+            if (m.pid === pid || !m.recipeId || m.status === "gegessen") continue;
+            const rid = m.recipeId, r = S.recipes[rid]; if (!r) continue;
+            const dd = dayDoc(pid, date), mine = live(dd && dd.meals).find(([, x]) => x.recipeId === rid), rad = (dd && dd.radar && dd.radar[rid]) || null;
+            const ownSel = rad && (rad.status === "favorit" || rad.status === "vorgemerkt");
+            if (mine) {
+              if (mine[1].status !== "vorgemerkt") continue;
+              await dayPatch(pid, date, { meals: { [mine[0]]: { status: "geplant" } } });
+            } else if (ownSel) {
+              await addMeal(pid, date, m.slot || slotForCategory(r.category, now().getHours()), { id: "match-" + rid, recipeId: rid, status: "geplant", servings: m.servings });
+            } else continue;
+            found.push({ rid, title: r.title, who: m.who || "" });
+          }
+        }
+      } finally { matching.delete(pid); }
+      return found;
+    }
+    let planBackfilled = false;
+    /** Einmal pro Sitzung: eigene Tage ab heute in den gemeinsamen Plan übernehmen (für Gerichte, die vor der Trennung geplant wurden). */
+    async function backfillPlan(pid) {
+      if (planBackfilled) return; planBackfilled = true; const t0 = today();
+      for (const d of Object.values(S.days)) if (d && d.pid === pid && d.date >= t0) await syncPlan(pid, d.date);
+    }
+    /** Gerichte der anderen Person an diesem Tag (aus dem gemeinsamen Plan). */
+    const partnerPlan = (pid, date) => live(((S.plan && S.plan[date]) || {}).meals).filter(([id, m]) => m.pid !== pid && !String(id).startsWith("sel-")).map(([id, m]) => ({ id, ...m })).sort((a, b) => String(a.slot).localeCompare(String(b.slot)));
 
     /** Profiländerungen gelten ab heute; vergangene Tage behalten ihre eingefrorenen Werte. */
     async function refreshDaySnapshots(pid) {
@@ -237,7 +302,7 @@
       if (existing && existing.meals && existing.meals[id]) return id;
       const r = o.recipeId ? S.recipes[o.recipeId] : null;
       const meal = { slot, recipeId: o.recipeId || null, title: r ? r.title : o.title || "Mahlzeit", status: o.status === "gegessen" ? "geplant" : o.status || "geplant",
-        portions: Number(o.portions) > 0 ? Number(o.portions) : 1, servings: Number(o.servings) > 0 ? Number(o.servings) : 4, manual: o.manual || null, snap: null, eatenAt: null, createdAt: now().toISOString() };
+        portions: Number(o.portions) > 0 ? Number(o.portions) : 1, servings: Number(o.servings) > 0 ? Number(o.servings) : 4, manual: o.manual || null, snap: null, eatenAt: null, createdAt: now().toISOString(), ...(o.from ? { from: o.from } : {}) };
       if (o.status === "gegessen") Object.assign(meal, { status: "gegessen", snap: snapshotFor(meal), eatenAt: now().toISOString() });
       await dayPatch(pid, date, { meals: { [id]: meal } });
       return id;
@@ -270,6 +335,17 @@
     }
 
     /** Bewusste Übernahme der aktuellen Rezeptwerte in einen bereits gebuchten Verzehr. */
+    /** Mengenfaktor eines Postens in einer geschätzten Mahlzeit ändern (f = Faktor zur gespeicherten Schätzung, 1 = wie geschätzt). Summen werden aus den Posten neu gebildet. */
+    async function scaleManualItem(pid, date, id, index, f) {
+      const m = mealOf(pid, date, id);
+      if (!m || m.recipeId || !m.manual || !Array.isArray(m.manual.items) || !m.manual.items[index]) return false;
+      const fac = Math.max(0.25, Math.min(5, Math.round(Number(f) * 100) / 100)); if (!Number.isFinite(fac)) return false;
+      const items = m.manual.items.map((it, i) => (i === index ? { ...it, f: fac } : it));
+      const sum = (k) => (items.every((it) => it[k] != null) ? Math.round(items.reduce((t, it) => t + it[k] * (it.f > 0 ? it.f : 1), 0)) : null);
+      await updateMeal(pid, date, id, { manual: { ...m.manual, items, kcal: sum("kcal"), protein: sum("protein"), carbs: sum("carbs"), fat: sum("fat") } });
+      return true;
+    }
+
     async function resnapshotMeal(pid, date, id) {
       const m = mealOf(pid, date, id);
       if (m.status === "gegessen") await dayPatch(pid, date, { meals: { [id]: { snap: snapshotFor(m) } } });
@@ -279,6 +355,7 @@
       const m = mealOf(pid, date, id);
       const d = dayDoc(pid, date);
       const change = { meals: { [id]: null } };
+      if (m && m.from) change.ptSkip = { [m.from]: true };
       if (m.recipeId && d.radar && d.radar[m.recipeId] && d.radar[m.recipeId].status === "vorgemerkt") change.radar = { [m.recipeId]: { status: "vorgeschlagen" } };
       await dayPatch(pid, date, change);
     }
@@ -383,7 +460,7 @@
     /** Gerichte, die eine andere Person heute in der engeren Auswahl oder schon vorgemerkt hat -> Name. */
     function radarMatches(pid, date) {
       const out = {};
-      for (const p of profiles()) if (p.id !== pid) for (const e of radarEntries(p.id, date)) if (e.status === "favorit" || e.status === "vorgemerkt") (out[e.rid] = out[e.rid] || []).push(p.name);
+      for (const [id, m] of live(((S.plan && S.plan[date]) || {}).meals)) if (m.pid !== pid && m.recipeId && (m.status === "vorgemerkt" || String(id).startsWith("sel-"))) (out[m.recipeId] = out[m.recipeId] || []).push(m.who);
       return out;
     }
     const radarFavCount = (pid, date, filter = {}) => radarStack(pid, date, { ...filter, stage: "fav" }).length;
@@ -434,7 +511,7 @@
       if (Object.keys(radar).length) change.radar = radar;
       if (Object.keys(change).length) await dayPatch(pid, date, change);
       // vorgemerkte Radar-Gerichte aller Profile von heute entfernen, damit die gemeinsame Einkaufsliste wirklich leer ist
-      for (const p of profiles()) {
+      for (const p of profiles().filter((x) => x.id === pid)) {
         const mm = {};
         const dd = dayDoc(p.id, date);
         for (const [id, m] of live(dd && dd.meals)) if (id.startsWith("radar-") && m.status === "vorgemerkt") mm[id] = null;
@@ -460,14 +537,15 @@
     function shopping(dateKey, scope) {
       const [date, flag] = String(dateKey).split("__");
       const dates = flag === "w" ? [0, 1, 2, 3, 4, 5, 6].map((i) => L.addDays(date, i)).filter((d) => d >= today()) : [date];
-      const pids = scope === "alle" ? profiles().map((p) => p.id) : [scope];
       const lines = [];
       let mealCount = 0; const mealList = [];
-      for (const day_ of dates) for (const pid of pids) for (const m of meals(pid, day_)) {
-        const r = m.recipeId ? S.recipes[m.recipeId] : null;
+      for (const day_ of dates) for (const [mid, m] of live(((S.plan && S.plan[day_]) || {}).meals)) {
+        if (String(mid).startsWith("sel-")) continue;
+        if (scope !== "alle" && m.pid !== scope) continue;
+        const pid = m.pid, r = m.recipeId ? S.recipes[m.recipeId] : null;
         if (!r) continue;
         mealCount++;
-        mealList.push({ pid, id: m.id, date: day_, title: r.title, servings: m.servings > 0 ? m.servings : 4, recipeServings: r.servings || 1, slot: m.slot, who: (profiles().find((p) => p.id === pid) || {}).name || "" });
+        mealList.push({ pid, id: mid, date: day_, title: r.title, servings: m.servings > 0 ? m.servings : 4, recipeServings: r.servings || 1, slot: m.slot, who: m.who || "" });
         const factor = (m.servings > 0 ? m.servings : 4) / (r.servings || 1);
         for (const i of r.ingredients || []) lines.push({ name: i.name, amount: i.amount, unit: i.unit, factor, source: r.title });
       }
@@ -508,6 +586,7 @@
             plannedN: ms.filter((m) => OPEN.includes(m.status)).length, eaten: Math.round(kc.reduce((s, k) => s + (k || 0), 0)),
             protein: eaten.length && pr.every((p) => p != null) ? Math.round(pr.reduce((s, p) => s + p, 0)) : null, sportDone: !!doc.sportDone,
             unknown: kc.some((k) => k == null) || eaten.some((m) => m.quality === "unvollstaendig" || m.quality === "fehlt") });
+          if (!info.complete && d < t && info.eatenN > 0) info.complete = true; // vergangene Tage mit Gegessenem zählen automatisch
           if (doc.goalKcal != null) {
             info.remaining = Math.round(doc.goalKcal + sport - info.eaten);
             if (info.complete && !info.unknown) { info.deviation = info.eaten - (doc.goalKcal + sport); info.hit = info.deviation <= 0; }
@@ -591,15 +670,36 @@
       if (dup) return dup.id;
       return saveImport({ type: "link", url, status: "offen", category: normCat(category) });
     }
+    /** Gegessenes in eigenen Worten: wird als offener Auftrag gespeichert; Claude berechnet es im Chat und schreibt `result` + status "fertig" zurück. */
+    async function addMealRequest(pid, date, slot, text, image = null) {
+      text = String(text || "").trim();
+      if (text.length < 3 && !image) throw new Error("bad_text");
+      return saveImport({ type: "mealtext", status: "offen", pid, date, slot, text: text.slice(0, 1500), ...(image ? { image } : {}) });
+    }
+    const mealRequests = (pid) => Object.keys(S.imports).filter((id) => S.imports[id] && S.imports[id].type === "mealtext" && S.imports[id].pid === pid && S.imports[id].status === "offen").map((id) => ({ id, ...S.imports[id] })).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+    let applyingMeals = false;
+    /** Fertig berechnete Aufträge als gegessene, geschätzte Mahlzeit eintragen (gleiche ID = nie doppelt) und abschließen. */
+    async function applyMealResults(pid) {
+      if (applyingMeals) return 0; applyingMeals = true; let n = 0;
+      try {
+        const ready = Object.keys(S.imports).filter((id) => { const x = S.imports[id]; return x && x.type === "mealtext" && x.pid === pid && x.status === "fertig" && x.result && x.result.kcal != null; });
+        for (const id of ready) {
+          const x = S.imports[id], rs = x.result;
+          await addMeal(pid, x.date, x.slot || "mittag", { id: "mt-" + id, title: String(rs.title || "Mahlzeit").slice(0, 60), manual: { kcal: rs.kcal, protein: rs.protein ?? null, carbs: rs.carbs ?? null, fat: rs.fat ?? null, items: rs.items || [], note: rs.note || "" }, portions: 1, status: "gegessen" });
+          await setImportStatus(id, "uebernommen"); n++;
+        }
+      } finally { applyingMeals = false; }
+      return n;
+    }
     const setImportStatus = (id, status) => queue("imports/" + id, (ref) => ref.update({ status }));
     const setImportRecipe = (id, recipe) => queue("imports/" + id, (ref) => ref.update({ recipe, status: "fertig" }));
     const deleteImport = (id) => queue("imports/" + id, (ref) => ref.delete());
 
     return {
       linkImports, addLinkImport, restoreRecipe, setImportRecipe, setImportStatus, deleteImport,
-      S, subscribe, mondayOf, radarMatches, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
+      S, subscribe, mondayOf, radarMatches, partnerPlan, backfillPlan, adoptPartner, autoMatch, addMealRequest, mealRequests, applyMealResults, onChange: (f) => (listeners.add(f), () => listeners.delete(f)), emit, today,
       profiles, profile, createDefaultProfiles, saveProfile, energyFor, currentWeight,
-      dayDoc, daySettings, setDayFlag, day, meals, addMeal, setMealStatus, updateMeal, resnapshotMeal, deleteMeal,
+      dayDoc, daySettings, setDayFlag, day, meals, addMeal, setMealStatus, updateMeal, scaleManualItem, resnapshotMeal, deleteMeal,
       foodList, foodMap, recipes, recipe, saveRecipe, deleteRecipe, findDuplicates, toggleFavorite, favSet,
       sportKinds, sportRates, setSportRate, addSportKind, addActivity, deleteActivity, activities,
       radarStack, radarFavCount, radarReset, radarDraw, radarDecide, radarLists, shopping, shoppingSet, shoppingReset, shoppingAdd, shoppingRemove,

@@ -34,7 +34,9 @@ def main() -> None:
             '<meta name="apple-mobile-web-app-title" content="Foody"><link rel="apple-touch-icon" href="icon.png"><link rel="icon" type="image/png" href="favicon.png">'
             '<link rel="manifest" href="manifest.webmanifest"><script src="config.js"></script></head><body>')
     backend = (SRC / "backend.js").read_text(encoding="utf-8")
-    body = html.replace("<main id=\"app\"", "<script>\n" + backend + "\n</script>\n<main id=\"app\"", 1)
+    import datetime
+    stamp = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=1))).strftime("%d.%m. %H:%M")
+    body = html.replace("<main id=\"app\"", "<script>window.FR_BUILD=\"" + stamp + "\";</script>\n<script>\n" + backend + "\n</script>\n<main id=\"app\"", 1)
     (docs / "index.html").write_text(head + body + "</body></html>", encoding="utf-8")
     (docs / "sw.js").write_text((SRC / "sw.js").read_text(encoding="utf-8"), encoding="utf-8")
     print(f"docs/index.html geschrieben ({(docs / 'index.html').stat().st_size // 1024} KB)")

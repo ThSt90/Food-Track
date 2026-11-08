@@ -293,13 +293,11 @@ test("17/18 Fehlende Nährwerte machen einen Tag unvollständig statt ihn zu sch
 test("Historie: vollständige Tage, Abweichung, Zielerreichung", async () => {
   const { st } = await ready();
   await st.addMeal("p1", "2026-10-14", "abend", { title: "a", manual: { kcal: 1800, protein: 100 }, status: "gegessen" });
-  await st.setDayFlag("p1", "2026-10-14", "complete", true);
   await st.addMeal("p1", "2026-10-15", "abend", { title: "b", manual: { kcal: 2300, protein: 90 }, status: "gegessen" });
-  await st.setDayFlag("p1", "2026-10-15", "complete", true);
-  await st.addMeal("p1", "2026-10-16", "abend", { title: "c", manual: { kcal: 900 }, status: "gegessen" }); // nicht abgeschlossen
+  await st.addMeal("p1", "2026-10-16", "abend", { title: "c", manual: { kcal: 900 }, status: "gegessen" }); // vergangene Tage mit Gegessenem zählen automatisch
   const h = st.historyDays("p1", "2026-10-13", "2026-10-17");
-  assert.equal(h.stats.completeDays, 2); assert.equal(h.stats.partialDays, 1);
-  assert.equal(h.stats.avgKcal, 2050); assert.equal(h.stats.avgDev, 50); assert.equal(h.stats.hitRate, 50);
+  assert.equal(h.stats.completeDays, 3); assert.equal(h.stats.partialDays, 0);
+  assert.equal(h.stats.avgKcal, 1667); assert.equal(h.stats.avgDev, -333); assert.equal(h.stats.hitRate, 67);
   assert.equal(h.days[0].hasData, false); // leerer Tag: weder Erfolg noch Misserfolg
   assert.equal(h.days[0].hit, null);
 });
@@ -365,14 +363,14 @@ test("Wocheneinkauf: Gerichte der restlichen Woche werden zusammengezählt, verg
   assert.ok(!st.shopping(DAY, "alle").items.some((i) => i.checked)); // Tagesliste bleibt unberührt
 });
 
-test("Match: Gerichte, die die andere Person heute auswählt, stehen vorn und tragen ihren Namen", async () => {
+test("Match: Gerichte, die die andere Person heute fest vormerkt, stehen vorn und tragen ihren Namen", async () => {
   const { st } = await ready();
   await st.radarDraw("p1", DAY, {}, 5); await st.radarDraw("p2", DAY, {}, 20);
   const [a, b] = st.radarStack("p1", DAY);
   await st.radarDecide("p1", DAY, a.id, "fav"); await st.radarDecide("p1", DAY, b.id, "fav");
   assert.deepEqual(st.radarStack("p1", DAY, { stage: "fav" }).map((r) => r.matchWith), ["", ""]);
   if (!st.radarStack("p2", DAY).some((r) => r.id === b.id)) await st.radarDecide("p2", DAY, b.id, "undo");
-  await st.radarDecide("p2", DAY, b.id, "fav");
+  await st.radarDecide("p2", DAY, b.id, "keep");
   const s2 = st.radarStack("p1", DAY, { stage: "fav" });
   assert.equal(s2[0].id, b.id); assert.ok(s2[0].matchWith.length > 0); assert.equal(s2[1].matchWith, "");
 });
@@ -405,4 +403,85 @@ test("Apple Health: Tagesverbrauch landet im Tag, ändert aber weder Budget noch
   const d = st.day("p1", DAY);
   assert.equal(d.burn.rest, 2033); assert.equal(d.burn.active, 239);
   assert.equal(d.budget.total, before); assert.equal(d.sport, 0); assert.equal(d.activities.length, 0);
+});
+
+test("Gemeinsamer Kochplan: Partner sieht das Gericht, Einkauf nutzt den Plan, Verzehrdaten bleiben privat", async () => {
+  const { db, st } = await ready();
+  const rid = Object.keys(st.S.recipes)[0];
+  const id = await st.addMeal("p1", DAY, "abend", { recipeId: rid, servings: 4, status: "geplant" });
+  const plan = (await db.doc("plan/" + DAY).get()).data();
+  assert.equal(plan.meals[id].pid, "p1"); assert.equal(plan.meals[id].recipeId, rid);
+  assert.ok(!("snap" in plan.meals[id]) && !("portions" in plan.meals[id]) && !("kcal" in plan.meals[id]));
+  assert.ok(st.partnerPlan("p2", DAY).some((m) => m.id === id)); assert.ok(!st.partnerPlan("p1", DAY).some((m) => m.id === id));
+  assert.ok(st.shopping(DAY, "alle").meals.some((m) => m.id === id));
+  await st.deleteMeal("p1", DAY, id);
+  assert.ok(!st.partnerPlan("p2", DAY).some((m) => m.id === id));
+});
+
+test("Essen beschreiben: Auftrag offen, Claude-Ergebnis wird einmalig als gegessene Mahlzeit eingetragen", async () => {
+  const { db, st } = await ready();
+  const id = await st.addMealRequest("p1", DAY, "abend", "3 Toast und ein Ei");
+  assert.equal(st.mealRequests("p1").length, 1); assert.equal(st.mealRequests("p2").length, 0);
+  assert.equal(await st.applyMealResults("p1"), 0); // noch nicht berechnet
+  await db.doc("imports/" + id).update({ status: "fertig", result: { title: "Toast mit Ei", items: [{ name: "3 Toast", kcal: 240 }], kcal: 320, protein: 15, carbs: 46, fat: 8, note: "Annahme" } });
+  assert.equal(await st.applyMealResults("p1"), 1);
+  assert.equal(await st.applyMealResults("p1"), 0); // nie doppelt
+  const d = st.day("p1", DAY);
+  const m = d.meals.find((x) => x.title === "Toast mit Ei");
+  assert.ok(m && m.status === "gegessen" && Math.round(m.total.kcal) === 320);
+  assert.equal(st.mealRequests("p1").length, 0);
+});
+
+test("Partnerin plant: Gericht landet automatisch bei mir, einmal entfernt kommt es nicht zurück, keine Rückkopplung", async () => {
+  const { st } = await ready();
+  const rid = Object.keys(st.S.recipes)[0], D = st.today();
+  const id = await st.addMeal("p2", D, "mittag", { recipeId: rid, servings: 3, status: "geplant" });
+  assert.equal(await st.adoptPartner("p1"), 1);
+  const mine = st.meals("p1", D).filter((m) => m.recipeId === rid);
+  assert.equal(mine.length, 1); assert.equal(mine[0].slot, "mittag"); assert.equal(mine[0].status, "geplant"); assert.equal(mine[0].servings, 3);
+  assert.equal(await st.adoptPartner("p1"), 0);
+  assert.equal(await st.adoptPartner("p2"), 0);
+  assert.equal(st.meals("p2", D).filter((m) => m.recipeId === rid).length, 1);
+  await st.deleteMeal("p1", D, mine[0].id);
+  assert.equal(await st.adoptPartner("p1"), 0);
+  assert.equal(st.meals("p1", D).filter((m) => m.recipeId === rid).length, 0);
+  assert.ok(id);
+});
+
+test("Match: beide wählen dasselbe Gericht aus, es wird bei beiden fest geplant und steht nur einmal in der Liste", async () => {
+  const { st } = await ready();
+  const rid = Object.keys(st.S.recipes)[0], D = st.today();
+  await st.radarDecide("p1", D, rid, "fav");
+  assert.equal((await st.autoMatch("p1")).length, 0);
+  await st.radarDecide("p2", D, rid, "fav");
+  const m1 = await st.autoMatch("p1");
+  assert.equal(m1.length, 1);
+  assert.equal(st.meals("p1", D).filter((m) => m.recipeId === rid).length, 1);
+  assert.equal(st.meals("p1", D).find((m) => m.recipeId === rid).status, "geplant");
+  const m2 = await st.autoMatch("p2");
+  assert.equal(m2.length, 1);
+  assert.equal(st.meals("p2", D).filter((m) => m.recipeId === rid).length, 1);
+  await st.adoptPartner("p2"); await st.adoptPartner("p1");
+  assert.equal(st.meals("p1", D).filter((m) => m.recipeId === rid).length, 1);
+  assert.equal(st.meals("p2", D).filter((m) => m.recipeId === rid).length, 1);
+  assert.ok(!st.shopping(D, "alle").meals.some((x) => String(x.id).startsWith("sel-")));
+});
+
+test("Geschätzte Mahlzeit: Annahmen bleiben gespeichert, Posten-Mengen lassen sich ändern, Summen und eingefrorener Verzehr folgen", async () => {
+  const { st } = await ready();
+  const items = [{ name: "3 Scheiben Toast", kcal: 240, protein: 8, carbs: 45, fat: 3 }, { name: "1 Ei", kcal: 80, protein: 7, carbs: 1, fat: 5 }];
+  await st.addMeal("p1", DAY, "fruehstueck", { id: "est1", title: "Toast mit Ei", manual: { kcal: 320, protein: 15, carbs: 46, fat: 8, items, note: "Annahme: 1 Scheibe 27 g", confidence: "mittel" }, status: "gegessen" });
+  let m = st.meals("p1", DAY).find((x) => x.id === "est1");
+  assert.equal(m.manual.note, "Annahme: 1 Scheibe 27 g");
+  assert.equal(m.total.kcal, 320);
+  assert.equal(await st.scaleManualItem("p1", DAY, "est1", 0, 0.5), true);
+  m = st.meals("p1", DAY).find((x) => x.id === "est1");
+  assert.equal(m.total.kcal, 200, "120 + 80");
+  assert.equal(m.manual.items[0].kcal, 240, "Original der Schätzung bleibt erhalten");
+  assert.equal(m.manual.items[0].f, 0.5);
+  assert.equal(m.manual.note, "Annahme: 1 Scheibe 27 g", "Annahmen bleiben nach dem Ändern");
+  assert.equal(m.total.protein, 11, "4 + 7");
+  assert.equal(await st.scaleManualItem("p1", DAY, "est1", 5, 2), false, "unbekannter Posten ändert nichts");
+  await st.scaleManualItem("p1", DAY, "est1", 1, 99);
+  assert.equal(st.meals("p1", DAY).find((x) => x.id === "est1").manual.items[1].f, 5, "Faktor ist auf 5 begrenzt");
 });
