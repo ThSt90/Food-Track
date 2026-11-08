@@ -484,8 +484,14 @@ body { background: transparent; min-height: 100dvh; }
 .itm .stepper { height: 40px; background: var(--surface-2); } .itm .stepper button { width: 36px; height: 100%; background: transparent; color: var(--text); } .itm .stepper span { min-width: 48px; font-size: 13px; }
 .itm .kc { min-width: 72px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
+.sgrow { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; min-height: 48px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 12px; margin-top: 6px; }
+.sgrow input { width: 22px; height: 22px; accent-color: var(--bad, #e08080); } .sgrow b { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sgrow.off { opacity: .6; text-decoration: line-through; border-color: var(--bad, #e08080); }
+.sgsteps { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+.sgacts { display: grid; gap: 8px; } .sgacts .btn { width: 100%; height: 48px; min-height: 48px; box-sizing: border-box; }
+
 </style>
-<script>window.FR_BUILD="05.11. 16:24";</script>
+<script>window.FR_BUILD="08.11. 11:31";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -737,6 +743,7 @@ body { background: transparent; min-height: 100dvh; }
     root.FR_LIVE = (body) => aiCall("live-session", body);
     root.FR_TEXT = (text) => aiCall("meal-text", { text });
     root.FR_LINK = (url) => aiCall("recipe-link", { url });
+    root.FR_SUGGEST = (body) => aiCall("recipe-suggest", body);
     const downloads = { async save({ filename, data }) {
       const b = new Blob([typeof data === "string" ? data : JSON.stringify(data)], { type: "application/json" });
       const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
@@ -2485,7 +2492,7 @@ body { background: transparent; min-height: 100dvh; }
     if (l.sort === "kcal-") rs = [...rs].sort((a, b) => (b.nut.perPortion.kcal ?? -1) - (a.nut.perPortion.kcal ?? -1));
     if (l.sort === "zeit") rs = [...rs].sort((a, b) => (a.prepMinutes ?? 999) - (b.prepMinutes ?? 999));
     const chip = (k, v, t) => `<button class="chip line" data-act="lfilter" data-k="${k}" data-v="${v ?? ""}" aria-pressed="${l[k] === v || (k === "fav" && l.fav && v === true)}">${esc(t)}</button>`;
-    return `<div class="row" style="align-items:center"><h2>Rezepte</h2><div class="btns"><button class="btn sm" data-act="newRecipe">${ic("plus", 16)} Neu</button><button class="btn sm primary" data-act="importStart">${ic("cam", 16)} Screenshot</button></div></div>
+    return `<div class="row" style="align-items:center"><h2>Rezepte</h2><div class="btns"><button class="btn sm" data-act="newRecipe">${ic("plus", 16)} Neu</button><button class="btn sm primary" data-act="importStart">${ic("cam", 16)} Screenshot</button>${suggestApi() ? `<button class="btn sm" data-act="sgStart">${ic("sparkle", 16)} Zutaten</button>` : ""}</div></div>
       <div class="search"><input id="lib-q" type="search" placeholder="Gericht oder Zutat suchen" value="${esc(l.q)}" data-input="libq" aria-label="Suchen">
         <select id="lib-sort" data-change="libsort" aria-label="Sortierung" style="width:auto">${[["name", "A–Z"], ["kcal", "kcal ↑"], ["kcal-", "kcal ↓"], ["zeit", "Zeit ↑"]].map(([k, t]) => `<option value="${k}" ${l.sort === k ? "selected" : ""}>${t}</option>`).join("")}</select></div>
       <div class="filters">${chip("fav", true, "★ Favoriten")}${X.CATS.map(([k]) => chip("cat", k, CAT_SHORT[k])).join("")}${chip("max", 20, "≤ 20 Min")}${chip("max", 40, "≤ 40 Min")}${allTags.map((t) => chip("tag", t, t)).join("")}</div>
@@ -2585,6 +2592,41 @@ body { background: transparent; min-height: 100dvh; }
       <div class="btns"><button class="btn primary" data-act="saveRecipe">${ed.saving ? "Speichert …" : "Speichern"}</button><button class="btn" data-act="closeSheet">Abbrechen</button></div>`;
   }
 
+  // ---- Aus Zutaten kochen: einsprechen → Vorschlag → abhaken, was fehlt → neu vorschlagen, bis alles da ist
+  const suggestApi = () => !!(window.FR_SUGGEST && window.FR_CONFIG && window.FR_CONFIG.ai === "api");
+  const sgParse = (text) => [...new Set(String(text || "").split(/[,;\n]+|\s+und\s+|\s+sowie\s+/i).map((x) => x.replace(/^\s*(und|auch|noch|dazu)\s+/i, "").trim()).filter((x) => x.length > 1))].slice(0, 40);
+  const SG_KINDS = [["vorhanden", "Aus deinem Vorrat"], ["zusaetzlich", "Zusätzlich nötig – hast du das?"], ["gewuerz", "Gewürze und Basics (angenommen vorhanden)"]];
+  function sheetSuggest() {
+    const g = ui.sheet.sg;
+    if (g.stage === "input") return `<div class="note">Sag oder schreib, was du da hast. Gängige Gewürze, Salz, Öl und Essig gehe ich als vorhanden aus. Das Rezept erstellt die KI selbst, es wird nicht im Internet gesucht.</div>
+      <label class="f">Zutaten<textarea id="sg-text" rows="4" placeholder="z. B. Hähnchenbrust, Brokkoli, Reis, 2 Eier, Joghurt" data-input="sgText">${esc(g.text)}</textarea></label>
+      <div class="btns">${getSR() ? `<button class="btn" data-act="sgMic" aria-pressed="${!!g.mic}">${g.mic ? "■ Aufnahme beenden" : "🎙 Einsprechen"}</button>` : ""}
+        <label class="f" style="flex:1;min-width:120px">Portionen<select id="sg-sv" data-change="sgSv">${[1, 2, 3, 4, 5, 6].map((n) => `<option value="${n}" ${g.servings === n ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>
+      <div class="eyebrow">Wofür?</div><div class="filters">${X.CATS.map(([k]) => `<button class="chip line" data-act="sgCat" data-v="${k}" aria-pressed="${g.cat === k}">${CAT_SHORT[k]}</button>`).join("")}</div>
+      ${g.error ? `<div class="notice">${esc(g.error)}</div>` : ""}
+      <button class="btn primary full" data-act="sgGo" ${g.busy ? "disabled" : ""}>${g.busy ? "Rezept wird erstellt …" : "Rezept vorschlagen"}</button>`;
+    const r = g.recipe, n = g.ticked.size;
+    const grp = SG_KINDS.map(([k, t]) => { const rows = r.ingredients.map((it, i) => [it, i]).filter(([it]) => it.kind === k); return rows.length ? `<div class="eyebrow">${t}</div>${rows.map(([it, i]) => `<label class="sgrow ${g.ticked.has(i) ? "off" : ""}"><input type="checkbox" data-act="sgTick" data-i="${i}" ${g.ticked.has(i) ? "checked" : ""} aria-label="${esc(it.name)} habe ich nicht"><span>${esc(it.name)}</span><b>${it.amount == null ? "" : deA(it.amount) + (it.unit ? " " + esc(it.unit) : "")}</b></label>`).join("")}` : ""; }).join("");
+    return `<div><b style="font-size:18px">${esc(r.title)}</b><div class="note">Vorschlag ${g.round} · ${deA(r.servings)} Portionen${r.prep_minutes ? " · ca. " + r.prep_minutes + " Min." : ""}</div>${r.why ? `<div class="note">${esc(r.why)}</div>` : ""}</div>
+      <div class="note"><b>Hake an, was du NICHT hast.</b></div>${grp}
+      <details><summary class="link acc">Zubereitung ansehen</summary><ol class="sgsteps">${r.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol></details>
+      ${r.note ? `<div class="note">${esc(r.note)}</div>` : ""}
+      ${g.error ? `<div class="notice">${esc(g.error)}</div>` : ""}
+      <div class="sgacts"><button class="btn primary" data-act="sgSave" ${n || g.busy ? "disabled" : ""}>Alles da – Rezept speichern</button>
+        <button class="btn" data-act="sgAgain" ${!n || g.busy ? "disabled" : ""}>${g.busy ? "Neuer Vorschlag …" : "Nicht alles da – neu vorschlagen"}</button>
+        <button class="btn ghost" data-act="sgBack">Zutaten ändern</button></div>`;
+  }
+  let sgRec = null;
+  function sgStopMic() { try { sgRec && sgRec.stop(); } catch (e) { /* egal */ } sgRec = null; if (ui.sheet && ui.sheet.sg) ui.sheet.sg.mic = false; }
+  async function sgFetch(g) {
+    g.busy = true; g.error = null; renderSheet(true);
+    try {
+      const out = await window.FR_SUGGEST({ have: g.have, missing: g.missing, tried: g.tried, servings: g.servings });
+      if (!out || out.error || !out.recipe) throw new Error(out && out.error ? out.error : "Kein Vorschlag erhalten.");
+      g.recipe = out.recipe; g.stage = "check"; g.ticked = new Set(); g.round += 1;
+    } catch (e) { g.error = (e && e.message) || "Das hat nicht geklappt."; }
+    finally { g.busy = false; if (ui.sheet && ui.sheet.sg === g) renderSheet(true); }
+  }
   const linkApi = () => !!(window.FR_LINK && window.FR_CONFIG && window.FR_CONFIG.ai === "api");
   function sheetImport() {
     const im = ui.sheet.im;
@@ -2898,8 +2940,8 @@ Regeln:
     const s = ui.sheet;
     if (!s) { root.innerHTML = ""; document.documentElement.style.overflow = ""; return; }
     if (!force && !LIVE_SHEETS.has(s.type)) return;
-    const titles = { recipe: "", editor: s.ed && s.ed.id ? "Rezept bearbeiten" : "Neues Rezept", import: "Rezept importieren", addMeal: `Eintrag: ${SLOT_LABEL[s.slot] || ""}`, plan: "Einplanen", sport: "Aktivität eintragen", mealMenu: "Mahlzeit", pickSlot: "Wann kochst du das?", weekPick: `Gericht für ${fmtDate(s.date || ui.date)}`, shopAmount: "Menge anpassen", weight: "Messung bearbeiten", food: "Lebensmittel" };
-    const body = { recipe: () => sheetRecipe(s.id), editor: sheetEditor, import: sheetImport, addMeal: sheetAddMeal, plan: sheetPlan, sport: sheetSport, mealMenu: sheetMealMenu, pickSlot: sheetPickSlot, weekPick: sheetWeekPick, shopAmount: sheetShopAmount, weight: sheetWeight, food: () => sheetFood(s.id) }[s.type];
+    const titles = { recipe: "", editor: s.ed && s.ed.id ? "Rezept bearbeiten" : "Neues Rezept", import: "Rezept importieren", addMeal: `Eintrag: ${SLOT_LABEL[s.slot] || ""}`, plan: "Einplanen", sport: "Aktivität eintragen", mealMenu: "Mahlzeit", pickSlot: "Wann kochst du das?", weekPick: `Gericht für ${fmtDate(s.date || ui.date)}`, suggest: "Aus Zutaten kochen", shopAmount: "Menge anpassen", weight: "Messung bearbeiten", food: "Lebensmittel" };
+    const body = { recipe: () => sheetRecipe(s.id), editor: sheetEditor, import: sheetImport, addMeal: sheetAddMeal, plan: sheetPlan, sport: sheetSport, mealMenu: sheetMealMenu, pickSlot: sheetPickSlot, weekPick: sheetWeekPick, suggest: sheetSuggest, shopAmount: sheetShopAmount, weight: sheetWeight, food: () => sheetFood(s.id) }[s.type];
     const scrollTop = root.querySelector(".sheet") ? root.querySelector(".sheet").scrollTop : 0;
     root.innerHTML = `<div class="sheet-bg" data-act="bgClose"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(titles[s.type] || "Details")}">
       <div class="grip"></div><div class="shead"><h3>${esc(titles[s.type] || "")}</h3><button class="iconbtn" data-act="closeSheet" aria-label="Schließen">${ic("x", 18)}</button></div>${body()}</div></div>`;
@@ -3412,6 +3454,42 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
     }),
     resnap: (t) => run("meal:" + t.dataset.id, () => store.resnapshotMeal(ui.pid, ui.date, t.dataset.id)),
     mealMenu: (t) => openSheet("mealMenu", { id: t.dataset.id }),
+    sgStart: () => openSheet("suggest", { sg: { stage: "input", text: "", servings: 2, cat: "main", have: [], missing: [], tried: [], recipe: null, ticked: new Set(), round: 0, busy: false, error: null, mic: false } }),
+    sgCat: (t) => { ui.sheet.sg.cat = t.dataset.v; renderSheet(true); },
+    sgMic: () => {
+      const g = ui.sheet.sg, SR = getSR(); if (!SR) return;
+      if (g.mic) { sgStopMic(); renderSheet(true); return; }
+      const r = new SR(); r.lang = "de-DE"; r.interimResults = false; r.continuous = true; sgRec = r; g.mic = true;
+      r.onresult = (e) => { let add = ""; for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) add += e.results[i][0].transcript + " "; add = add.trim(); if (add && ui.sheet && ui.sheet.sg === g) { g.text = (g.text ? g.text.replace(/[,\s]+$/, "") + ", " : "") + add; renderSheet(true); } };
+      r.onerror = () => { if (ui.sheet && ui.sheet.sg === g) { g.mic = false; renderSheet(true); } };
+      r.onend = () => { if (ui.sheet && ui.sheet.sg === g && g.mic) { g.mic = false; sgRec = null; renderSheet(true); } };
+      try { r.start(); } catch (e) { g.mic = false; } renderSheet(true);
+    },
+    sgGo: () => {
+      const g = ui.sheet.sg; if (g.busy) return; sgStopMic();
+      g.text = $("#sg-text") ? $("#sg-text").value : g.text; g.have = sgParse(g.text);
+      if (!g.have.length) { g.error = "Bitte nenne mindestens eine Zutat."; renderSheet(true); return; }
+      g.missing = []; g.tried = []; g.round = 0; sgFetch(g);
+    },
+    sgTick: (t) => { const g = ui.sheet.sg, i = Number(t.dataset.i); g.ticked.has(i) ? g.ticked.delete(i) : g.ticked.add(i); renderSheet(true); },
+    sgAgain: () => {
+      const g = ui.sheet.sg; if (g.busy || !g.ticked.size) return;
+      const gone = g.recipe.ingredients.filter((_, i) => g.ticked.has(i)).map((it) => it.name);
+      const kept = g.recipe.ingredients.filter((it, i) => !g.ticked.has(i) && it.kind !== "gewuerz").map((it) => it.name);
+      g.missing = [...new Set([...g.missing, ...gone])];
+      g.have = [...new Set([...g.have, ...kept])].filter((h) => !g.missing.some((m) => m.toLowerCase() === h.toLowerCase()));
+      g.tried = [...g.tried, g.recipe.title].slice(-12);
+      sgFetch(g);
+    },
+    sgBack: () => { const g = ui.sheet.sg; g.stage = "input"; g.error = null; renderSheet(true); },
+    sgSave: () => run("sg", async () => {
+      const g = ui.sheet.sg, r = g.recipe; if (!r || g.ticked.size) return;
+      const id = await store.saveRecipe({ title: r.title, category: g.cat, servings: r.servings, prepMinutes: r.prep_minutes, tags: "KI-Vorschlag",
+        ingredients: r.ingredients.map((it) => ({ name: it.name, amount: it.amount, unit: it.unit })), instructions: r.steps.join("\n"),
+        source: "KI-Vorschlag aus deinen Zutaten", nutrition: {} });
+      toast("Rezept gespeichert – alle Zutaten sind da.");
+      if (id) openSheet("recipe", { id }); else closeSheet();
+    }),
     itemF: (t) => run("meal:" + t.dataset.id, async () => {
       const m = store.meals(ui.pid, ui.date).find((x) => x.id === t.dataset.id); const idx = Number(t.dataset.i);
       if (!m || !m.manual || !m.manual.items || !m.manual.items[idx]) return;
@@ -3746,6 +3824,7 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
     const t = e.target, ed = ui.sheet && ui.sheet.ed;
     if (t.dataset.input === "libq") { ui.lib.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(() => { const pos = t.selectionStart; renderMain(); const n = $("#lib-q"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }, 250); }
     if (t.dataset.input === "dsText" && ui.sheet) { ui.sheet.dsText = t.value; return; }
+    if (t.dataset.input === "sgText" && ui.sheet && ui.sheet.sg) { ui.sheet.sg.text = t.value; return; }
     if (t.dataset.input === "amq") { ui.sheet.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(() => { renderSheet(true); const n = $("#am-q"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 250); }
     if (t.dataset.input === "impUrl") ui.sheet.im.url = t.value;
     if (t.dataset.input === "impText") ui.sheet.im.text = t.value;
@@ -3762,6 +3841,7 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
   document.addEventListener("change", async (e) => {
     const t = e.target, ed = ui.sheet && ui.sheet.ed;
     if (t.dataset.change === "libsort") { ui.lib.sort = t.value; schedule(); }
+    if (t.dataset.change === "sgSv" && ui.sheet && ui.sheet.sg) ui.sheet.sg.servings = Number(t.value) || 2;
     if (ed && t.dataset.ing != null && t.tagName === "SELECT") { ed.data.ingredients[Number(t.dataset.ing)].foodId = t.value; renderSheet(true); }
     if (ed && (t.dataset.bind || t.dataset.nut) && t.tagName === "SELECT") (t.dataset.bind ? (ed.data[t.dataset.bind] = t.value) : (ed.data.nutrition[t.dataset.nut] = t.value));
     if (ed && t.dataset.ing != null && t.dataset.k === "name") renderSheet(true); // Zuordnung neu anzeigen
