@@ -491,7 +491,7 @@ body { background: transparent; min-height: 100dvh; }
 .sgacts { display: grid; gap: 8px; } .sgacts .btn { width: 100%; height: 48px; min-height: 48px; box-sizing: border-box; }
 
 </style>
-<script>window.FR_BUILD="08.11. 12:00";</script>
+<script>window.FR_BUILD="08.11. 12:15";</script>
 <script>
 /* Foody – eigenständiger Betrieb (GitHub Pages + Supabase).
  * Ersetzt die Claude-Artifact-Capabilities (db, user, assets, downloads) durch Supabase und liefert
@@ -2607,7 +2607,8 @@ body { background: transparent; min-height: 100dvh; }
       <button class="btn primary full" data-act="sgGo" ${g.busy ? "disabled" : ""}>${g.busy ? "Rezept wird erstellt …" : "Rezept vorschlagen"}</button>`;
     const r = g.recipe, n = g.ticked.size;
     const grp = SG_KINDS.map(([k, t]) => { const rows = r.ingredients.map((it, i) => [it, i]).filter(([it]) => it.kind === k); return rows.length ? `<div class="eyebrow">${t}</div>${rows.map(([it, i]) => `<label class="sgrow ${g.ticked.has(i) ? "off" : ""}"><input type="checkbox" data-act="sgTick" data-i="${i}" ${g.ticked.has(i) ? "checked" : ""} aria-label="${esc(it.name)} habe ich nicht"><span>${esc(it.name)}</span><b>${it.amount == null ? "" : deA(it.amount) + (it.unit ? " " + esc(it.unit) : "")}</b></label>`).join("")}` : ""; }).join("");
-    return `<div><b style="font-size:18px">${esc(r.title)}</b><div class="note">Vorschlag ${g.round} · ${deA(r.servings)} Portionen${r.prep_minutes ? " · ca. " + r.prep_minutes + " Min." : ""}</div>${r.why ? `<div class="note">${esc(r.why)}</div>` : ""}${r.taste_score ? `<div class="note">Geschmacks-Check der KI: ${r.taste_score}/10${r.taste_check ? " – " + esc(r.taste_check) : ""}</div>` : ""}${r.unused && r.unused.length ? `<div class="note">Nicht verwendet: ${esc(r.unused.map((u) => u.name + (u.reason ? " (" + u.reason + ")" : "")).join(", "))}</div>` : ""}</div>
+    const tabs = g.options && g.options.length > 1 ? `<div class="filters">${g.options.map((o, i) => `<button class="chip line" data-act="sgPick" data-i="${i}" aria-pressed="${g.pick === i}">${o.variant === "besonders" ? "Etwas Besonderes" : "Einfachste Variante"}</button>`).join("")}</div>` : "";
+    return `${tabs}<div><b style="font-size:18px">${esc(r.title)}</b><div class="note">Runde ${g.round} · ${deA(r.servings)} Portionen${r.prep_minutes ? " · ca. " + r.prep_minutes + " Min." : ""}</div>${r.why ? `<div class="note">${esc(r.why)}</div>` : ""}${r.taste_score ? `<div class="note">Geschmacks-Check der KI: ${r.taste_score}/10${r.taste_check ? " – " + esc(r.taste_check) : ""}</div>` : ""}${r.unused && r.unused.length ? `<div class="note">Nicht verwendet: ${esc(r.unused.map((u) => u.name + (u.reason ? " (" + u.reason + ")" : "")).join(", "))}</div>` : ""}</div>
       <div class="note"><b>Hake an, was du NICHT hast.</b></div>${grp}
       <details><summary class="link acc">Zubereitung ansehen</summary><ol class="sgsteps">${r.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol></details>
       ${r.note ? `<div class="note">${esc(r.note)}</div>` : ""}
@@ -2622,8 +2623,8 @@ body { background: transparent; min-height: 100dvh; }
     g.busy = true; g.error = null; renderSheet(true);
     try {
       const out = await window.FR_SUGGEST({ have: g.have, missing: g.missing, tried: g.tried, servings: g.servings });
-      if (!out || out.error || !out.recipe) throw new Error(out && out.error ? out.error : "Kein Vorschlag erhalten.");
-      g.recipe = out.recipe; g.stage = "check"; g.ticked = new Set(); g.round += 1;
+      if (!out || out.error || !(out.recipe || (out.recipes && out.recipes.length))) throw new Error(out && out.error ? out.error : "Kein Vorschlag erhalten.");
+      g.options = Array.isArray(out.recipes) && out.recipes.length ? out.recipes : [out.recipe]; g.pick = 0; g.recipe = g.options[0]; g.stage = "check"; g.ticked = new Set(); g.round += 1;
     } catch (e) { g.error = (e && e.message) || "Das hat nicht geklappt."; }
     finally { g.busy = false; if (ui.sheet && ui.sheet.sg === g) renderSheet(true); }
   }
@@ -3476,6 +3477,7 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
       if (!g.have.length) { g.error = "Bitte nenne mindestens eine Zutat."; renderSheet(true); return; }
       g.missing = []; g.tried = []; g.round = 0; sgFetch(g);
     },
+    sgPick: (t) => { const g = ui.sheet.sg, i = Number(t.dataset.i); if (g.busy || !g.options || !g.options[i]) return; g.pick = i; g.recipe = g.options[i]; g.ticked = new Set(); renderSheet(true); },
     sgTick: (t) => { const g = ui.sheet.sg, i = Number(t.dataset.i); g.ticked.has(i) ? g.ticked.delete(i) : g.ticked.add(i); renderSheet(true); },
     sgAgain: () => {
       const g = ui.sheet.sg; if (g.busy || !g.ticked.size) return;
@@ -3483,7 +3485,7 @@ ${c.convo ? `<div class="cook-reply ${c.listening || c.status === "listen" ? "li
       const kept = g.recipe.ingredients.filter((it, i) => !g.ticked.has(i) && it.kind !== "gewuerz").map((it) => it.name);
       g.missing = [...new Set([...g.missing, ...gone])];
       g.have = [...new Set([...g.have, ...kept])].filter((h) => !g.missing.some((m) => m.toLowerCase() === h.toLowerCase()));
-      g.tried = [...g.tried, g.recipe.title].slice(-12);
+      g.tried = [...g.tried, ...(g.options || [g.recipe]).map((o) => o.title)].slice(-12);
       sgFetch(g);
     },
     sgBack: () => { const g = ui.sheet.sg; g.stage = "input"; g.error = null; renderSheet(true); },
