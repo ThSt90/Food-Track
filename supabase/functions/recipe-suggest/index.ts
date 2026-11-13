@@ -6,6 +6,10 @@ const MODEL = Deno.env.get("OPENAI_MODEL_SUGGEST") ?? "gpt-6.1-terra";
 const FALLBACK = Deno.env.get("OPENAI_MODEL_FALLBACK") ?? "gpt-5-mini";
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
+/** Nur die zwei Konten aus der Tabelle owners (p1/p2) dürfen die KI nutzen: my_pid() liest die E-Mail aus dem Login, fremde Konten bekommen null. */
+async function allowed(auth: string): Promise<boolean> {
+  try { const r = await fetch(`${URL_}/rest/v1/rpc/my_pid`, { method: "POST", headers: { apikey: ANON, Authorization: auth, "Content-Type": "application/json" }, body: "{}" }); if (!r.ok) return false; const p = await r.json(); return p === "p1" || p === "p2"; } catch { return false; }
+}
 async function ask(messages: unknown[]): Promise<any> {
   const call = (m: string, extra: Record<string, unknown>) => fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { Authorization: "Bearer " + KEY, "Content-Type": "application/json" },
     body: JSON.stringify({ model: m, messages, response_format: { type: "json_object" }, max_completion_tokens: 9000, ...extra }) });
@@ -42,6 +46,7 @@ Deno.serve(async (req) => {
   if (!KEY) return json({ error: "OPENAI_API_KEY fehlt in Supabase (Edge Functions → Secrets)" }, 500);
   const who = await fetch(`${URL_}/auth/v1/user`, { headers: { apikey: ANON, Authorization: req.headers.get("authorization") ?? "" } });
   if (!who.ok) return json({ error: "nicht angemeldet" }, 401);
+  if (!(await allowed(req.headers.get("authorization") ?? ""))) return json({ error: "Dieses Konto darf die KI nicht nutzen." }, 403);
   let b: any; try { b = await req.json(); } catch { return json({ error: "JSON erwartet" }, 400); }
   const have = list(b.have, 60), missing = list(b.missing, 60), tried = list(b.tried, 12), servings = Math.max(1, Math.min(8, Math.round(Number(b.servings) || 2)));
   const text = String(b.text ?? "").trim().slice(0, 300), only = b.only === "einfach" || b.only === "besonders" ? b.only : null, want = only ? 1 : 2;

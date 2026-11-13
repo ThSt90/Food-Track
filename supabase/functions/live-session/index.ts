@@ -8,6 +8,10 @@ const BACKEND = Deno.env.get("OPENAI_MODEL_LIVE_BACKEND") ?? "gpt-6-luna";
 const VOICE = Deno.env.get("OPENAI_LIVE_VOICE") ?? "cedar";
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
+/** Nur die zwei Konten aus der Tabelle owners (p1/p2) dürfen die KI nutzen: my_pid() liest die E-Mail aus dem Login, fremde Konten bekommen null. */
+async function allowed(auth: string): Promise<boolean> {
+  try { const r = await fetch(`${URL_}/rest/v1/rpc/my_pid`, { method: "POST", headers: { apikey: ANON, Authorization: auth, "Content-Type": "application/json" }, body: "{}" }); if (!r.ok) return false; const p = await r.json(); return p === "p1" || p === "p2"; } catch { return false; }
+}
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false });
 const TOOLS = [
   { type: "function", name: "next_step", description: "Zum nächsten Rezeptschritt wechseln, wenn der Nutzer weiter möchte.", parameters: obj({}) },
@@ -24,6 +28,7 @@ Deno.serve(async (req) => {
   if (!KEY) return json({ error: "OPENAI_API_KEY fehlt in Supabase (Edge Functions → Secrets)" }, 500);
   const who = await fetch(`${URL_}/auth/v1/user`, { headers: { apikey: ANON, Authorization: req.headers.get("authorization") ?? "" } });
   if (!who.ok) return json({ error: "nicht angemeldet" }, 401);
+  if (!(await allowed(req.headers.get("authorization") ?? ""))) return json({ error: "Dieses Konto darf die KI nicht nutzen." }, 403);
   let b: any; try { b = await req.json(); } catch { return json({ error: "JSON erwartet" }, 400); }
   const sdp = String(b.sdp ?? ""); if (!/^v=0/.test(sdp) || sdp.length > 60000) return json({ error: "SDP ungültig" }, 400);
   const c = b.context ?? {};
